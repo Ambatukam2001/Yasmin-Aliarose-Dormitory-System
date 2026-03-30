@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resident Directory | Yasmin & Aliarose Dormitory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <style>
+        .bk-search { position: relative; width: 100%; max-width: 350px; }
+        .bk-search-ico { position: absolute; left: 1.25rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; transition: 0.3s; z-index: 10; }
+        .bk-search input { width: 100%; padding: 0.85rem 1rem 0.85rem 3.25rem; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 1rem; font-size: 0.9rem; font-weight: 600; font-family: 'Inter', sans-serif; transition: 0.3s all cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .bk-search input:focus { background: #fff; border-color: var(--primary); box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15); outline: none; }
+        .bk-search input:focus + .bk-search-ico { color: var(--primary); transform: translateY(-50%) scale(1.1); }
+
+        .filter-nav { display: flex; gap: 0.75rem; margin-bottom: 2rem; background: #fff; padding: 0.5rem; border-radius: 1.25rem; width: fit-content; border: none; box-shadow: var(--shadow-sm); }
+        .tab-btn { padding: 0.75rem 1.75rem; border-radius: 0.85rem; font-weight: 800; font-size: 0.85rem; color: #64748b; cursor: pointer; transition: 0.3s; border: none; background: transparent; }
+        .tab-btn.active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); }
+        .ph-row { display: flex; justify-content: space-between; padding: 1rem; border-bottom: 1px solid #f1f5f9; }
+        .ph-amount { font-weight: 800; color: #1e293b; }
+        .ph-date { color: #64748b; font-size: 0.8rem; }
+    </style>
+</head>
+<body class="admin-page">
+
+    <main class="main-content">
+        <header class="view-header">
+            <div>
+                <h1>Resident Directory <i class="fas fa-users color-primary"></i></h1>
+                <p>Manage all active residents and archived accounts.</p>
+            </div>
+            <div class="header-actions">
+                <div class="bk-search" style="margin-bottom:0; min-width:300px;">
+                    <i class="fas fa-search bk-search-ico"></i>
+                    <input type="text" id="residentSearch" placeholder="Search by name or number..." oninput="filterResidents()">
+                </div>
+            </div>
+        </header>
+
+        <div class="filter-nav">
+            <button class="tab-btn active" onclick="switchTab('active', this)">Active Residents</button>
+            <button class="tab-btn" onclick="switchTab('past', this)">Past Residents</button>
+            <button class="tab-btn" onclick="switchTab('archive', this)">Archive (Trash) <span id="trashCount" class="badge-count" style="margin-left:5px; font-size:0.7rem; background:rgba(0,0,0,0.1); padding:2px 6px; border-radius:10px;">0</span></button>
+        </div>
+
+        <div class="table-container main-card">
+            <table class="data-table" id="residentsTable">
+                <thead>
+                    <tr>
+                        <th>Resident Info</th>
+                        <th>Guardian Details</th>
+                        <th>Type</th>
+                        <th id="dateHeader">Joined Date</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="residentsBody">
+                    <tr><td colspan="5" class="text-center py-8 text-muted">Initialize state...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modal: Edit Resident -->
+    <div id="editModal" class="modal-wrapper">
+        <div class="modal-body max-w-600">
+            <h2 class="font-bold mb-4">Edit Resident Details <i class="fas fa-edit color-primary"></i></h2>
+            <form id="editForm" onsubmit="handleEditSubmit(event)">
+                <input type="hidden" id="edit_id">
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="edit_name" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Number</label>
+                        <input type="text" id="edit_contact" required>
+                    </div>
+                </div>
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Guardian Name</label>
+                        <input type="text" id="edit_guardian" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Guardian Contact</label>
+                        <input type="text" id="edit_guardian_contact" required>
+                    </div>
+                </div>
+                <div class="form-group mb-4">
+                    <label>Resident Category</label>
+                    <select id="edit_category" required>
+                        <option value="College">College</option>
+                        <option value="High School">High School</option>
+                        <option value="Reviewer">Reviewer</option>
+                    </select>
+                </div>
+                <div class="form-group mb-4">
+                    <label>School Name</label>
+                    <input type="text" id="edit_school">
+                </div>
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Next Due Date</label>
+                        <input type="date" id="edit_due">
+                    </div>
+                    <div class="form-group">
+                        <label>Remarks</label>
+                        <input type="text" id="edit_remarks" placeholder="Notes...">
+                    </div>
+                </div>
+                <div class="actions-flex">
+                    <button type="button" onclick="closeModal('editModal')" class="btn-action">Cancel</button>
+                    <button type="submit" class="btn-action btn-confirm">Save Changes <i class="fas fa-save" style="margin-left:5px"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: History -->
+    <div id="historyModal" class="modal-wrapper">
+        <div class="modal-body max-w-600">
+            <h2 class="font-bold mb-2">Resident History <i class="fas fa-history color-primary"></i></h2>
+            <p id="history_name" class="font-bold text-muted mb-4"></p>
+            <div id="historyContent" style="max-height: 400px; overflow-y: auto;">
+                <!-- History list -->
+            </div>
+            <div class="actions-flex mt-6">
+                <button type="button" onclick="closeModal('historyModal')" class="btn-action btn-confirm">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Payment Modal -->
+    <div id="paymentModal" class="modal-wrapper">
+        <div class="modal-body max-w-500">
+            <h2 class="font-bold mb-4">Log Rent Payment <i class="fas fa-hand-holding-usd color-primary"></i></h2>
+            <form onsubmit="handlePaymentSubmit(event)">
+                <input type="hidden" id="pay_id">
+                <p id="pay_name" class="font-bold color-primary mb-4" style="font-size: 1.1rem;"></p>
+                <div class="form-group mb-4">
+                    <label>Amount Received (₱)</label>
+                    <input type="number" id="pay_amount" value="1500" required>
+                </div>
+                <div class="form-group mb-4">
+                    <label>Next Due Date</label>
+                    <input type="date" id="pay_due" required>
+                </div>
+                <div class="actions-flex">
+                    <button type="button" onclick="closeModal('paymentModal')" class="btn-action">Cancel</button>
+                    <button type="submit" class="btn-action btn-confirm">Confirm Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/state.js"></script>
+    <script src="../assets/js/admin-components.js"></script>
+
+    <script>
+        let currentTab = 'active';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminComponents.renderSidebar('users');
+            AdminComponents.renderMobileHeader('Residents');
+            renderTable();
+        });
+
+        function switchTab(tab, btn) {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById('dateHeader').textContent = tab === 'active' ? 'Joined Date' : 'Deleted Date';
+            renderTable();
+        }
+
+        function renderTable() {
+            let data = [];
+            if (currentTab === 'active') {
+                data = DormState.data.bookings.filter(b => b.booking_status === 'Active');
+            } else if (currentTab === 'past') {
+                data = DormState.data.bookings.filter(b => b.booking_status === 'Completed');
+            } else {
+                data = DormState.data.deletedBookings;
+            }
+            const tbody = document.getElementById('residentsBody');
+            
+            // Update trash count
+            document.getElementById('trashCount').textContent = DormState.data.deletedBookings.length;
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">
+                    <i class="fas fa-folder-open mb-4" style="font-size:3rem; opacity:0.2; display:block;"></i>
+                    No ${currentTab} residents found.
+                </td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = data.map(u => {
+                const dateKey = currentTab === 'active' ? u.created_at : u.deleted_at;
+                const formattedDate = new Date(dateKey).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                
+                return `
+                <tr>
+                    <td>
+                        <div class="font-bold" style="font-size:1.1rem; color:#1e293b;">${u.full_name}</div>
+                        <div class="font-mono text-xs text-muted">${u.contact_number}</div>
+                    </td>
+                    <td>
+                        <div class="text-sm font-bold">${u.guardian_name}</div>
+                        <div class="text-xs text-muted"><i class="fas fa-phone"></i> ${u.guardian_contact}</div>
+                    </td>
+                    <td><span class="badge badge-info">${u.category}</span></td>
+                    <td><span class="text-sm font-medium">${formattedDate}</span></td>
+                    <td class="text-right">
+                        <div class="actions-flex">
+                            ${currentTab === 'active' ? `
+                                <button onclick="openPayment(${u.id}, '${u.full_name}')" class="btn-action btn-confirm" title="Log Rent Payment">
+                                    <i class="fas fa-hand-holding-usd"></i> Rent
+                                </button>
+                                <button onclick="confirmCheckout(${u.id})" class="btn-action btn-edit" style="background:#f1f5f9; color:#475569;" title="Checkout Resident">
+                                    <i class="fas fa-door-closed"></i> Out
+                                </button>
+                                <button onclick="openHistory(${u.id}, '${u.full_name}')" class="btn-action btn-history" title="Payment History">
+                                    <i class="fas fa-receipt"></i>
+                                </button>
+                                <button onclick="openEdit(${u.id})" class="btn-action btn-edit" title="Edit Resident">
+                                    <i class="fas fa-user-edit"></i>
+                                </button>
+                                <button onclick="confirmDelete(${u.id})" class="btn-action btn-danger" title="Move to Archive">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : `
+                                <button onclick="handleRestore(${u.id})" class="btn-action btn-restore" style="background:var(--primary); color:white;">
+                                    <i class="fas fa-undo"></i> Restore to Active
+                                </button>
+                            `}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function filterResidents() {
+            const q = document.getElementById('residentSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#residentsBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(q) ? '' : 'none';
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- Actions ---
+
+        function openEdit(id) {
+            const u = DormState.data.bookings.find(b => b.id == id);
+            if (!u) return;
+
+            document.getElementById('edit_id').value = u.id;
+            document.getElementById('edit_name').value = u.full_name;
+            document.getElementById('edit_contact').value = u.contact_number;
+            document.getElementById('edit_guardian').value = u.guardian_name;
+            document.getElementById('edit_guardian_contact').value = u.guardian_contact;
+            document.getElementById('edit_category').value = u.category;
+            document.getElementById('edit_school').value = u.school_name || "";
+            document.getElementById('edit_due').value = u.due_date || "";
+            document.getElementById('edit_remarks').value = u.remarks || "";
+
+            document.getElementById('editModal').style.display = 'flex';
+        }
+
+        function handleEditSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit_id').value;
+            const newData = {
+                full_name: document.getElementById('edit_name').value,
+                contact_number: document.getElementById('edit_contact').value,
+                guardian_name: document.getElementById('edit_guardian').value,
+                guardian_contact: document.getElementById('edit_guardian_contact').value,
+                category: document.getElementById('edit_category').value,
+                school_name: document.getElementById('edit_school').value,
+                due_date: document.getElementById('edit_due').value,
+                remarks: document.getElementById('edit_remarks').value
+            };
+
+            if (DormState.updateBooking(id, newData)) {
+                closeModal('editModal');
+                renderTable();
+            }
+        }
+
+        function openHistory(id, name) {
+            document.getElementById('history_name').textContent = name;
+            const container = document.getElementById('historyContent');
+            
+            // Logic to get payments for this resident (from state.js)
+            const payments = DormState.data.bookings.find(b => b.id == id)?.payments || [];
+            
+            if (payments.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-muted">No payment records found for this resident.</div>`;
+            } else {
+                container.innerHTML = payments.map(p => `
+                    <div class="ph-row">
+                        <div class="ph-amount">₱${parseFloat(p.amount).toLocaleString()}</div>
+                        <div class="ph-date">${new Date(p.date).toLocaleDateString()} &middot; ${p.method}</div>
+                    </div>
+                `).join('');
+            }
+
+            document.getElementById('historyModal').style.display = 'flex';
+        }
+
+        function confirmDelete(id) {
+            if (confirm('Move this resident to the Archive? Their bed will be freed.')) {
+                DormState.deleteBooking(id);
+                renderTable();
+            }
+        }
+
+        function confirmCheckout(id) {
+            if (confirm('Mark this resident as Checked Out? They will be moved to Past Residents.')) {
+                DormState.checkoutBooking(id);
+                renderTable();
+            }
+        }
+
+        function handleRestore(id) {
+            if (confirm('Restore this account to Active? Their previous bed will be re-assigned if available.')) {
+                if (DormState.restoreBooking(id)) {
+                    renderTable();
+                } else {
+                    alert('Could not restore. The original bed might already be occupied.');
+                }
+            }
+        }
+
+        function openPayment(id, name) {
+            const b = DormState.getBookings().find(x => x.id == id);
+            document.getElementById('pay_id').value = id;
+            document.getElementById('pay_name').textContent = name;
+            
+            // Set default monthly rent amount
+            document.getElementById('pay_amount').value = b?.monthly_rent || 1500;
+            
+            // Set default due to 1 month from now
+            let d = new Date();
+            d.setMonth(d.getMonth() + 1);
+            document.getElementById('pay_due').value = d.toISOString().split('T')[0];
+
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        function handlePaymentSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('pay_id').value;
+            const amt = document.getElementById('pay_amount').value;
+            const due = document.getElementById('pay_due').value;
+            DormState.processPayment(id, amt, 'Manual (Directory)', due);
+            closeModal('paymentModal');
+            renderTable();
+        }
+    </script>
+</body>
+</html>

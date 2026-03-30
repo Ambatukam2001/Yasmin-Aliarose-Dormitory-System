@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservations | Yasmin & Aliarose Dormitory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <style>
+        .bk-search { position: relative; width: 100%; max-width: 350px; }
+        .bk-search-ico { position: absolute; left: 1.25rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; transition: 0.3s; z-index: 10; }
+        .bk-search input { width: 100%; padding: 0.85rem 1rem 0.85rem 3.25rem; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 1rem; font-size: 0.9rem; font-weight: 600; font-family: 'Inter', sans-serif; transition: 0.3s all cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .bk-search input:focus { background: #fff; border-color: var(--primary); box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15); outline: none; }
+        .bk-search input:focus + .bk-search-ico { color: var(--primary); transform: translateY(-50%) scale(1.1); }
+
+        .filter-tabs { display: flex; gap: 0.75rem; margin-bottom: 2rem; overflow-x: auto; padding: 0.5rem; background: #fff; border-radius: 1.25rem; border: none; width: fit-content; box-shadow: var(--shadow-sm); }
+        .filter-nav-btn { background: #f8fafc; border: none; padding: 0.6rem 1.25rem; border-radius: 0.85rem; font-weight: 700; color: #64748b; cursor: pointer; white-space: nowrap; transition: 0.2s; }
+        .filter-nav-btn.nav-active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+        .filter-nav-btn:not(.nav-active):hover { background: #f8fafc; color: var(--primary); }
+        
+        .receipt-preview-wrap { width: 100%; max-height: 500px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; border-radius: 1rem; overflow: hidden; border: 2px dashed #cbd5e1; }
+        .receipt-image { max-width: 100%; max-height: 100%; object-fit: contain; }
+    </style>
+</head>
+<body class="admin-page">
+
+    <main class="main-content">
+        <header class="view-header">
+            <div>
+                <h1>Reservation Control <i class="fas fa-calendar-check color-primary"></i></h1>
+                <p>Manage bookings, log payments, and handle checkouts.</p>
+            </div>
+            <div class="header-actions" style="min-width: 320px;">
+                <div class="bk-search">
+                    <i class="fas fa-search bk-search-ico"></i>
+                    <input type="text" id="bookingSearch" placeholder="Search by name or ref..." oninput="filterTable()">
+                </div>
+            </div>
+            <div id="trashTip" style="display:none; padding:0.5rem 1rem; background:#fef2f2; border:1px solid #fee2e2; border-radius:0.75rem; color:#ef4444; font-size:0.8rem; font-weight:700;">
+                <i class="fas fa-info-circle"></i> Looking for Restore? Switch to Archive tab.
+            </div>
+        </header>
+
+        <div class="filter-tabs" id="statusFilterBar">
+            <button class="filter-nav-btn nav-active" onclick="filterByStatus('all', this)">All</button>
+            <button class="filter-nav-btn" onclick="filterByStatus('Pending', this)">Pending</button>
+            <button class="filter-nav-btn" onclick="filterByStatus('Overdue', this)" style="color:#ef4444;">Overdue <span id="overdueCount" style="background:#ef4444; color:white; border-radius:10px; padding:0 6px; font-size:0.6rem;">0</span></button>
+            <button class="filter-nav-btn" onclick="filterByStatus('Active', this)">Active</button>
+            <button class="filter-nav-btn" onclick="filterByStatus('archive', this)">Archive (Trash) <span id="trashCount" style="background:rgba(0,0,0,0.1); color:inherit; border-radius:10px; padding:0 6px; font-size:0.6rem;">0</span></button>
+        </div>
+
+        <div class="table-container main-card">
+            <table class="data-table" id="bookingsTable">
+                <thead>
+                    <tr>
+                        <th>Resident</th>
+                        <th>Placement</th>
+                        <th>Status</th>
+                        <th>Financials</th>
+                        <th class="text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="bookingsBody">
+                    <!-- Dynamic -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modal: Receipt Viewer -->
+    <div id="receiptModal" class="modal-wrapper">
+        <div class="modal-body max-w-500">
+            <h2 class="font-bold mb-4">Payment Receipt <i class="fas fa-file-invoice-dollar color-primary" style="margin-left:5px"></i></h2>
+            <div class="receipt-preview-wrap">
+                <img id="receiptImg" src="" class="receipt-image" alt="No image available">
+                <div id="noReceiptMsg" style="display:none; padding: 2rem; text-align: center; color: #64748b;">
+                    <i class="fas fa-image-slash mb-2" style="font-size: 2rem; opacity: 0.3;"></i><br>
+                    No receipt image provided.
+                </div>
+            </div>
+            <div class="text-center mt-6">
+                <button type="button" onclick="closeModal('receiptModal')" class="btn-action btn-confirm">Got it</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Payment Modal -->
+    <div id="paymentModal" class="modal-wrapper">
+        <div class="modal-body max-w-500">
+            <h2 class="font-bold mb-4">Log Rent Payment <i class="fas fa-hand-holding-usd color-primary"></i></h2>
+            <form onsubmit="handlePaymentSubmit(event)">
+                <input type="hidden" id="pay_id">
+                <p id="pay_name" class="font-bold color-primary mb-4" style="font-size: 1.1rem;"></p>
+                <div class="form-group mb-4">
+                    <label>Amount Received (₱)</label>
+                    <input type="number" id="pay_amount" value="1600" required>
+                </div>
+                <div class="form-group mb-4">
+                    <label>Next Due Date</label>
+                    <input type="date" id="pay_due" required>
+                </div>
+                <div class="actions-flex">
+                    <button type="button" onclick="closeModal('paymentModal')" class="btn-action">Cancel</button>
+                    <button type="submit" class="btn-action btn-confirm">Confirm Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/state.js"></script>
+    <script src="../assets/js/admin-components.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminComponents.renderSidebar('bookings');
+            AdminComponents.renderMobileHeader('Bookings');
+            renderBookings();
+        });
+
+        let currentFilter = 'all';
+
+        function renderBookings() {
+            let bookings;
+            if (currentFilter === 'all') bookings = DormState.getBookings();
+            else if (currentFilter === 'Overdue') bookings = DormState.getOverdueBookings();
+            else if (currentFilter === 'archive') bookings = DormState.data.deletedBookings;
+            else bookings = DormState.getBookings().filter(b => b.payment_status === currentFilter || b.booking_status === currentFilter);
+            
+            // Stats sync
+            const stats = DormState.getStats();
+            document.getElementById('overdueCount').textContent = stats.overdue;
+            document.getElementById('trashCount').textContent = DormState.data.deletedBookings.length;
+            
+            // Show restore helper only in archive
+            document.getElementById('trashTip').style.display = (currentFilter === 'archive') ? 'block' : 'none';
+
+            const tbody = document.getElementById('bookingsBody');
+            if (bookings.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">No ${currentFilter === 'archive' ? 'archived' : 'active'} records found.</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = bookings.reverse().map(b => {
+                const bed = DormState.getBed(b.bed_id);
+                const room = DormState.data.rooms.find(r => r.id == (bed ? bed.room_id : null));
+                const isPending = b.payment_status === 'Pending';
+                const isActive = b.booking_status === 'Active' && b.payment_status === 'Confirmed';
+                const isArchived = currentFilter === 'archive';
+                const hasReceipt = b.receipt_image && b.receipt_image.length > 0;
+                
+                const now = new Date();
+                const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+                const isOverdue = b.booking_status === 'Active' && b.payment_status === 'Confirmed' && b.due_date && b.due_date < today;
+
+                return `
+                <tr>
+                    <td>
+                        <div class="font-bold" style="color:#1e293b;">${b.full_name}</div>
+                        <small class="text-muted font-bold">${b.category} &middot; <span class="font-mono">${b.contact_number}</span></small>
+                    </td>
+                    <td>
+                        <div class="text-xs uppercase tracking-wider font-bold color-primary mb-1">${b.booking_ref}</div>
+                        <div class="text-xs font-medium">Floor ${room?room.floor_no:'?'} &middot; Rm ${room?room.room_no:'?'} &middot; ${bed ? (bed.bed_no == 1 ? 'Lower Deck' : bed.bed_no == 2 ? 'Upper Deck' : 'Bed ' + bed.bed_no) : 'Bed ?'}</div>
+                    </td>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:5px">
+                            <span class="badge badge-${b.payment_status.toLowerCase()}">${b.payment_status}</span>
+                            ${isOverdue ? `<span class="badge" style="background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; font-size:0.6rem;">OVERDUE</span>` : ''}
+                        </div>
+                        <small class="text-xs font-bold text-slate-400 uppercase">${b.booking_status}</small>
+                    </td>
+                    <td>
+                        <div class="text-sm font-bold ${isOverdue ? 'text-danger' : 'text-slate-700'}">₱${parseFloat(b.monthly_rent || 1500).toLocaleString()}</div>
+                        <div class="text-xs ${isOverdue ? 'text-danger font-bold' : 'text-muted'}" style="margin-top:2px">Due: ${b.due_date || '—'}</div>
+                    </td>
+                    <td class="text-right">
+                        <div class="actions-flex">
+                            ${isArchived ? `
+                                <button onclick="handleRestore(${b.id})" class="btn-action btn-restore" title="Restore to Active List">
+                                    <i class="fas fa-undo"></i> Restore
+                                </button>
+                                <button onclick="handlePermanentDelete(${b.id})" class="btn-action btn-danger" title="Permanently Delete">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            ` : `
+                                ${hasReceipt ? `
+                                    <button onclick="openReceipt('${b.id}')" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
+                                        <i class="fas fa-image"></i> Receipt
+                                    </button>
+                                ` : ''}
+
+                                ${isPending ? `
+                                    <button onclick="handleAccept(${b.id})" class="btn-action btn-confirm" title="Confirm Reservation"><i class="fas fa-check"></i> Accept</button>
+                                    <button onclick="handleDecline(${b.id})" class="btn-action btn-danger" title="Decline Reservation"><i class="fas fa-times"></i> Decline</button>
+                                ` : ''}
+                                
+                                ${isActive ? `
+                                    <button onclick="openPayment(${b.id}, '${b.full_name}')" class="btn-action btn-confirm" title="Log Rent Payment"><i class="fas fa-hand-holding-usd"></i> Rent</button>
+                                    <button onclick="handleCheckout(${b.id})" class="btn-action btn-history" style="background:#f1f5f9; color:#334155;" title="Resident Move Out"><i class="fas fa-sign-out-alt"></i> Out</button>
+                                ` : ''}
+
+                                <button onclick="handleDelete(${b.id})" class="btn-action btn-danger" title="Move to Archive"><i class="fas fa-trash-alt"></i></button>
+                            `}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        function filterByStatus(s, btn) {
+            currentFilter = s;
+            document.querySelectorAll('.filter-nav-btn').forEach(p => p.classList.remove('nav-active'));
+            btn.classList.add('nav-active');
+            renderBookings();
+        }
+
+        function filterTable() {
+            const q = document.getElementById('bookingSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#bookingsBody tr');
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(q) ? '' : 'none';
+            });
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- Actions ---
+
+        function handleAccept(id) { DormState.acceptBooking(id); renderBookings(); }
+        function handleDecline(id) { if(confirm('Decline and cancel this booking?')) { DormState.declineBooking(id); renderBookings(); } }
+        function handleCheckout(id) { if(confirm('Mark resident as completed and free the bed?')) { DormState.checkoutBooking(id); renderBookings(); } }
+        function handleDelete(id) { if(confirm('Move this record to Archive? You can restore it later.')) { DormState.deleteBooking(id); renderBookings(); } }
+        
+        function handleRestore(id) {
+            if(confirm('Restore this record to Active list?')) {
+                if(DormState.restoreBooking(id)) {
+                    renderBookings();
+                } else {
+                    alert('Could not restore. The assigned bed might be taken.');
+                }
+            }
+        }
+
+        function handlePermanentDelete(id) {
+             if(confirm('PERMANENTLY delete this archive record? This cannot be undone.')) {
+                 DormState.data.deletedBookings = DormState.data.deletedBookings.filter(x => x.id != id);
+                 DormState.save();
+                 renderBookings();
+             }
+        }
+
+        function openReceipt(id) {
+            const b = (currentFilter === 'archive') 
+                ? DormState.data.deletedBookings.find(x => x.id == id)
+                : DormState.getBookings().find(x => x.id == id);
+            const img = document.getElementById('receiptImg');
+            const msg = document.getElementById('noReceiptMsg');
+            
+            if (b && b.receipt_image) {
+                img.src = b.receipt_image;
+                img.style.display = 'block';
+                msg.style.display = 'none';
+            } else {
+                img.style.display = 'none';
+                msg.style.display = 'block';
+            }
+            document.getElementById('receiptModal').style.display = 'flex';
+        }
+
+        function openPayment(id, name) {
+            const b = DormState.getBookings().find(x => x.id == id);
+            document.getElementById('pay_id').value = id;
+            document.getElementById('pay_name').textContent = name;
+            document.getElementById('pay_amount').value = b?.monthly_rent || 1500;
+            
+            let d = new Date();
+            d.setMonth(d.getMonth() + 1);
+            document.getElementById('pay_due').value = d.toISOString().split('T')[0];
+
+            document.getElementById('paymentModal').style.display = 'flex';
+        }
+
+        function handlePaymentSubmit(e) {
+            e.preventDefault();
+            const id = document.getElementById('pay_id').value;
+            const amt = document.getElementById('pay_amount').value;
+            const due = document.getElementById('pay_due').value;
+            DormState.processPayment(id, amt, 'Manual (Admin)', due);
+            closeModal('paymentModal');
+            renderBookings();
+        }
+    </script>
+</body>
+</html>

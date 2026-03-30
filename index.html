@@ -1,0 +1,571 @@
+    <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modern Bedspacer Booking | Yasmin & Aliarose Dormitory</title>
+
+    <!-- External Assets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Project Styles -->
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <!-- Netlify Compatibility Library -->
+    <script src="assets/js/state.js"></script>
+    <script src="assets/js/components.js"></script>
+</head>
+
+<body>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Components.renderHeader("Home");
+        });
+    </script>
+
+    <script>
+        function toggleMenu() {
+            document.querySelector('.nav-links').classList.toggle('active');
+        }
+
+        // Global Theme Handler
+        function toggleTheme() {
+            const isDark = document.body.classList.toggle('dark-theme');
+            localStorage.setItem('theme', isDark ? 'dark' : 'light');
+            updateThemeIcon(isDark);
+        }
+        function updateThemeIcon(isDark) {
+            const btn = document.getElementById('themeToggleBtn');
+            if (btn) btn.innerHTML = isDark ? '<i class="fas fa-sun" style="color:#f59e0b;"></i>' : '<i class="fas fa-moon"></i>';
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('theme') === 'dark') {
+                document.body.classList.add('dark-theme');
+                updateThemeIcon(true);
+            }
+
+            // URL Parameter handling for success notification
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('status') === 'success') {
+                const ref = urlParams.get('ref');
+                Swal.fire({
+                    title: 'Reservation Confirmed!',
+                    html: 'Your slot has been secured. <br><br> Reference: <strong class="text-emerald-600">' + (ref ? ref : '') + '</strong>',
+                    icon: 'success',
+                    confirmButtonText: 'Great!',
+                    confirmButtonColor: '#10b981',
+                    customClass: { popup: 'rounded-3xl p-10', title: 'font-outfit font-black' }
+                });
+                // Clean URL
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }
+        });
+    </script>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h1 style="font-size: clamp(1.75rem, 8vw, 4.5rem);">Stay Smarter, Live Better at <br><span class="color-primary">Yasmin & Aliarose Dormitory</span></h1>
+                <p style="font-size: clamp(1rem, 4vw, 1.25rem);">Your premium home away from home. Affordable, modern, and student-friendly bedspacer accommodations
+                    designed for your comfort and focused study.</p>
+                <div class="hero-btns">
+                    <a href="booking.html" class="btn btn-primary">Book Your Bed Now</a>
+                    <a href="#rules" class="btn btn-outline">View Dormitory Rules</a>
+                </div>
+            </div>
+        </section>
+
+        <section id="overview" class="bg-white">
+            <div class="container py-8">
+                <div class="grid-2-col flex-center">
+                    <div class="overview-text">
+                        <h2 class="section-title">Why Choose Us?</h2>
+                        <p class="mb-4 text-lg text-secondary">Yasmin & Aliarose Dormitory offers more than just a place
+                            to sleep. We provide a community-focused environment across our 2nd, 3rd, and 4th floors.
+                        </p>
+                        <p class="text-lg text-secondary">With 18 specialized rooms and a total capacity of over 100
+                            bedspacers, we ensure every resident has the space and facilities they need to thrive.</p>
+                    </div>
+                    <div class="overview-visual"
+                        style="border-radius: 1.25rem; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); height: 100%; min-height: 350px;">
+                        <iframe width="100%" height="100%" frameborder="0" style="border:0; min-height: 350px;"
+                            src="https://maps.google.com/maps?q=8.222817,124.240125&t=&z=16&ie=UTF8&iwloc=&output=embed"
+                            allowfullscreen>
+                        </iframe>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="benefits">
+            <div class="container text-center">
+                <h2 class="section-title">Premium Benefits</h2>
+                <div class="grid-3">
+                    <div class="card card-hover">
+                        <i class="fas fa-wifi"></i>
+                        <h3>Free High-Speed WiFi</h3>
+                        <p>Stay connected with your studies and family with our complimentary unlimited internet access.
+                        </p>
+                    </div>
+                    <div class="card card-hover">
+                        <i class="fas fa-faucet-drip"></i>
+                        <h3>Free Water</h3>
+                        <p>No more worrying about utility bills. Unlimited water usage is included in your monthly stay.
+                        </p>
+                    </div>
+                    <div class="card card-hover">
+                        <i class="fas fa-bolt"></i>
+                        <h3>Free Electricity</h3>
+                        <p>Standard electricity usage is covered. Study all night without worrying about the meter.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="gallery" class="bg-off-white">
+            <div class="container text-center">
+                <h2 class="section-title">Gallery of Yasmin & Aliarose Dormitory</h2>
+                <p class="section-subtitle mb-6" style="text-align: left; margin-left: 0;">Experience the perfect blend
+                    of comfort and functionality. Our dormitory is designed to be your ideal sanctuary for studies and
+                    relaxation.</p>
+
+                <div class="carousel-container"
+                    style="position: relative; max-width: 1000px; margin: 0 auto; display: flex; align-items: center; justify-content: center; gap: 1rem;">
+                    <button class="carousel-btn prev-btn" onclick="scrollGallery(Direction.prev)" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 10;"><i
+                            class="fas fa-chevron-left"></i></button>
+
+                    <div class="carousel-track-wrapper" style="overflow: hidden; width: 100%; padding: 0.5rem 0;">
+                        <div class="carousel-track" id="galleryTrack"
+                            style="display: flex; gap: 1rem; transition: transform 0.4s ease-in-out; align-items: stretch;">
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/1.jpg')">
+                                <img src="uploads/images/YA/1.jpg" alt="Gallery 1">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/2.jpg')">
+                                <img src="uploads/images/YA/2.jpg" alt="Gallery 2">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/3.jpg')">
+                                <img src="uploads/images/YA/3.jpg" alt="Gallery 3">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/4.jpg')">
+                                <img src="uploads/images/YA/4.jpg" alt="Gallery 4">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/5.jpg')">
+                                <img src="uploads/images/YA/5.jpg" alt="Gallery 5">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/6.jpg')">
+                                <img src="uploads/images/YA/6.jpg" alt="Gallery 6">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/7.jpg')">
+                                <img src="uploads/images/YA/7.jpg" alt="Gallery 7">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/8.jpg')">
+                                <img src="uploads/images/YA/8.jpg" alt="Gallery 8">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/9.jpg')">
+                                <img src="uploads/images/YA/9.jpg" alt="Gallery 9">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/10.jpg')">
+                                <img src="uploads/images/YA/10.jpg" alt="Gallery 10">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                            <div class="carousel-slide" onclick="openLightbox('uploads/images/YA/11.jpg')">
+                                <img src="uploads/images/YA/11.jpg" alt="Gallery 11">
+                                <div class="zoom-icon"><i class="fas fa-search-plus"></i></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="carousel-btn next-btn" onclick="scrollGallery(Direction.next)" style="position: absolute; right: 0; top: 50%; transform: translateY(-50%); z-index: 10;"><i
+                            class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lightbox Modal -->
+        <div id="lightbox" class="lightbox-overlay"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 99999; align-items: center; justify-content: center; transition: opacity 0.3s; padding: 1rem;">
+            <div
+                style="position: relative; max-width: 95%; display: flex; flex-direction: column; align-items: flex-end; gap: 0.75rem;">
+                <!-- Bold Close Button -->
+                <button onclick="closeLightbox()"
+                    style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; border-radius: 2rem; padding: 0.6rem 1.25rem; font-family: 'Outfit', sans-serif; font-size: 0.95rem; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 0.6rem; transition: 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                    <i class="fas fa-times"></i> Close Image
+                </button>
+
+                <img id="lightboxImg" src=""
+                    style="max-width: 100%; max-height: 80vh; border-radius: 0.75rem; box-shadow: 0 20px 40px rgba(0,0,0,0.6); object-fit: contain;">
+            </div>
+        </div>
+
+        <!-- Carousel & Lightbox Scripts -->
+        <style>
+            .carousel-btn {
+                background: #fff;
+                border: 2px solid #e2e8f0;
+                color: #1e293b;
+                width: 45px;
+                height: 45px;
+                border-radius: 50%;
+                font-size: 1.1rem;
+                cursor: pointer;
+                transition: 0.2s;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex-shrink: 0;
+                z-index: 2;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+                opacity: 0.8;
+            }
+
+            .carousel-btn:hover {
+                background: #10b981;
+                color: #fff;
+                border-color: #10b981;
+                transform: scale(1.05);
+            }
+
+            .carousel-btn:active {
+                transform: scale(0.95);
+            }
+
+            .carousel-slide {
+                overflow: hidden;
+                border-radius: 1rem;
+                flex: 0 0 calc(100% / 3 - 0.67rem);
+                cursor: pointer;
+                position: relative;
+            }
+
+            .carousel-slide img {
+                width: 100%;
+                height: 260px;
+                object-fit: cover;
+                border-radius: 1rem;
+                border: 2px solid #e2e8f0;
+                display: block;
+                filter: brightness(0.95);
+                transition: 0.3s;
+            }
+
+            .carousel-slide:hover img {
+                filter: brightness(0.7);
+                transform: scale(1.02);
+            }
+
+            .carousel-slide .zoom-icon {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 255, 255, 0.95);
+                color: #10b981;
+                width: 50px;
+                height: 50px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 1.25rem;
+                opacity: 0;
+                transition: 0.3s;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                pointer-events: none;
+            }
+
+            .carousel-slide:hover .zoom-icon {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.1);
+            }
+
+            .dark-theme .carousel-btn {
+                background: #1e293b;
+                border-color: #334155;
+                color: #f8fafc;
+            }
+
+            .dark-theme .carousel-btn:hover {
+                background: #10b981;
+                border-color: #10b981;
+            }
+
+            .dark-theme .carousel-slide img {
+                border-color: #334155;
+            }
+
+            /* Fixed Lightbox transitions */
+            .lightbox-overlay {
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            .lightbox-overlay.show {
+                opacity: 1 !important;
+                pointer-events: auto;
+            }
+
+            @media(max-width: 768px) {
+                .carousel-slide {
+                    flex: 0 0 calc(50% - 0.5rem) !important;
+                }
+                .hero { padding: 4rem 1rem 2rem; }
+                .hero h1 { font-size: 2rem !important; }
+                .hero p { font-size: 0.95rem !important; margin-bottom: 2rem; }
+                .carousel-btn { width: 35px; height: 35px; font-size: 0.9rem; }
+            }
+
+            @media(max-width: 480px) {
+                .carousel-slide {
+                    flex: 0 0 100% !important;
+                }
+            }
+        </style>
+        <script>
+            let currentSlide = 0;
+            const Direction = { prev: -1, next: 1 };
+
+            function scrollGallery(direction) {
+                const track = document.getElementById('galleryTrack');
+                const slides = track.querySelectorAll('.carousel-slide');
+                if (!slides.length) return;
+
+                let visibleItems = 3;
+                if (window.innerWidth <= 480) visibleItems = 1;
+                else if (window.innerWidth <= 768) visibleItems = 2;
+
+                const maxSlide = slides.length - visibleItems;
+                currentSlide += direction;
+                if (currentSlide < 0) currentSlide = 0;
+                if (currentSlide > maxSlide) currentSlide = maxSlide;
+
+                let gapSize = 16; // 1rem
+                const slideWidth = slides[0].offsetWidth + gapSize;
+                track.style.transform = 'translateX(-' + (currentSlide * slideWidth) + 'px)';
+            }
+
+            window.addEventListener('resize', () => {
+                currentSlide = 0;
+                const track = document.getElementById('galleryTrack');
+                if (track) track.style.transform = 'translateX(0)';
+            });
+
+            function openLightbox(src) {
+                const lb = document.getElementById('lightbox');
+                const lbImg = document.getElementById('lightboxImg');
+                if (!lb || !lbImg) return;
+
+                lbImg.src = src;
+                lb.style.display = 'flex';
+
+                // Force browser repaint to ensure css transition occurs
+                setTimeout(() => {
+                    lb.classList.add('show');
+                }, 10);
+
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closeLightbox() {
+                const lb = document.getElementById('lightbox');
+                if (!lb) return;
+
+                lb.classList.remove('show');
+                setTimeout(() => {
+                    lb.style.display = 'none';
+                    document.getElementById('lightboxImg').src = '';
+                }, 300);
+                document.body.style.overflow = '';
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                const lb = document.getElementById('lightbox');
+                if (lb) {
+                    lb.addEventListener('click', function (e) {
+                        // Close if the user clicks the dark background or the close button
+                        if (e.target === this || e.target.closest('button')) {
+                            closeLightbox();
+                        }
+                    });
+                }
+            });
+        </script>
+
+        <section id="rules" class="bg-white">
+            <div class="container">
+                <div class="text-center mb-6">
+                    <h2 class="section-title">Dormitory Rules</h2>
+                    <p class="section-subtitle">Ensuring a peaceful and productive living environment for everyone.</p>
+                </div>
+                <div class="grid-2">
+                    <div class="rule-item card-hover">
+                        <i class="fas fa-venus"></i>
+                        <div>
+                            <h4 class="font-bold">Female Only</h4>
+                            <p class="text-secondary">This is an exclusive all-female dormitory ensuring a safe and comfortable stay.</p>
+                        </div>
+                    </div>
+                    <div class="rule-item card-hover">
+                        <i class="fas fa-user-lock"></i>
+                        <div>
+                            <h4 class="font-bold">Mother's Entry Policy</h4>
+                            <p class="text-secondary">Parents may enter the rooms, but access is strictly for Mothers only.</p>
+                        </div>
+                    </div>
+                    <div class="rule-item card-hover">
+                        <i class="fas fa-volume-mute"></i>
+                        <div>
+                            <h4 class="font-bold">Maintain Silence</h4>
+                            <p class="text-secondary">Quiet hours are observed for a conducive study environment.</p>
+                        </div>
+                    </div>
+                    <div class="rule-item card-hover">
+                        <i class="fas fa-utensils"></i>
+                        <div>
+                            <h4 class="font-bold">Kitchen Items</h4>
+                            <p class="text-secondary">Only rice cookers allowed. Bring your own personal items.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <style>
+        /* Index Specific Styles (kept here to minimize bloating global CSS further) */
+        .grid-2-col {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .flex-center {
+            align-items: center;
+        }
+
+        .icon-xl {
+            font-size: 8rem;
+            color: var(--primary);
+            opacity: 0.15;
+        }
+
+        .text-lg {
+            font-size: 1.15rem;
+        }
+
+        .max-600 {
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .py-8 {
+            padding-top: 5rem;
+            padding-bottom: 5rem;
+        }
+
+        .bg-off-white {
+            background: var(--off-white);
+        }
+
+        .bg-white {
+            background: var(--white);
+        }
+
+        /* Gallery Specific */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .gallery-item {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition-base);
+            height: 260px;
+            position: relative;
+        }
+
+        .gallery-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: var(--transition-slow);
+        }
+
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .gallery-item:hover img {
+            transform: scale(1.05);
+        }
+
+        .item-overlay {
+            position: absolute;
+            bottom: 0;
+            inset: 0 auto 0 0;
+            width: 100%;
+            padding: 1.5rem;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+            color: white;
+            display: flex;
+            align-items: flex-end;
+            font-weight: 700;
+            opacity: 0;
+            transition: 0.3s;
+        }
+
+        .gallery-item:hover .item-overlay {
+            opacity: 1;
+        }
+
+        .item-placeholder {
+            width: 100%;
+            height: 100%;
+            background: #e8f5e9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary);
+            font-weight: 700;
+            gap: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .item-placeholder i {
+            font-size: 2.5rem;
+            opacity: 0.7;
+        }
+    </style>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Components.renderFooter();
+        });
+    </script>
+
+</body>
+
+</html>

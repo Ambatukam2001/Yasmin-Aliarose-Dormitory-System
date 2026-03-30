@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Yasmin & Aliarose Dormitory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css"> 
+    <style>
+        .flash-toast { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; padding: 1rem 1.75rem; border-radius: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: toastIn 0.4s ease; }
+        .flash-toast.success { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="admin-page">
+
+    <main class="main-content">
+        <header class="view-header">
+            <div>
+                <h1>Command Center <i class="fas fa-microchip color-primary"></i></h1>
+                <p>Live monitoring of dormitory occupancy and reservations.</p>
+            </div>
+        </header>
+
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon bg-info"><i class="fas fa-door-open"></i></div>
+                <div class="stat-value" id="total-rooms">0</div>
+                <div class="stat-label">Total Rooms</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-success"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-value" id="available-beds">0</div>
+                <div class="stat-label">Available Beds</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-warning"><i class="fas fa-hand-holding-usd"></i></div>
+                <div class="stat-value" id="potential-revenue">₱0</div>
+                <div class="stat-label">Potential Revenue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon bg-danger"><i class="fas fa-bell"></i></div>
+                <div class="stat-value" id="overdue-payments">0</div>
+                <div class="stat-label">Overdue Payments</div>
+            </div>
+        </div>
+
+        <div class="recent-section main-card">
+            <div class="section-top">
+                <h3>Newest Reservations</h3>
+                <a href="bookings.html" class="btn-outline btn-sm">View Full List</a>
+            </div>
+            <table class="data-table" id="recentBookingsTable">
+                <thead>
+                    <tr>
+                        <th>Ref</th>
+                        <th>Resident</th>
+                        <th>Placement</th>
+                        <th>Status</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Loading State -->
+                    <tr><td colspan="5" class="text-center">Loading recent bookings...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="paymentModal" class="modal-wrapper">
+        <div class="modal-body max-w-500">
+            <h2 class="font-bold mb-4">Log Rent Payment</h2>
+            <form id="paymentForm" onsubmit="AdminLogic.handlePaymentSubmit(event)">
+                <input type="hidden" id="pay_booking_id">
+                <p id="pay_resident_name" class="font-bold color-primary mb-2"></p>
+                <div class="form-group">
+                    <label>Amount Received (₱)</label>
+                    <input type="number" name="amount" value="1500" required step="0.01">
+                </div>
+                <div class="form-group">
+                    <label>Payment Date</label>
+                    <input type="date" id="pay_date" required>
+                </div>
+                <div class="form-group">
+                    <label>Next Due Date</label>
+                    <input type="date" id="pay_next_due" required>
+                </div>
+                <div class="actions-flex gap-4 mt-2">
+                    <button type="button" onclick="AdminLogic.closeModal('paymentModal')" class="btn btn-outline" style="flex:1;">Cancel</button>
+                    <button type="submit" class="btn btn-primary" style="flex:2;">Confirm Payment <i class="fas fa-save" style="margin-left: 0.5rem;"></i></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/state.js"></script>
+    <script src="../assets/js/admin-components.js"></script>
+    <script src="../assets/js/admin-logic.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminComponents.renderSidebar('dashboard');
+            AdminComponents.renderMobileHeader('Dashboard');
+            
+            // Set default date
+            document.getElementById('pay_date').value = new Date().toISOString().split('T')[0];
+            
+            AdminLogic.initDashboard();
+        });
+    </script>
+</body>
+</html>

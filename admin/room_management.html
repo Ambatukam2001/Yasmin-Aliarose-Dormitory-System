@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Room Management | Yasmin & Aliarose Dormitory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/room_management.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .bk-search { position: relative; width: 100%; max-width: 300px; }
+        .bk-search-ico { position: absolute; left: 1.25rem; top: 50%; transform: translateY(-50%); color: #94a3b8; pointer-events: none; transition: 0.3s; z-index: 10; }
+        .bk-search input { width: 100%; padding: 0.85rem 1rem 0.85rem 3.25rem; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 1rem; font-size: 0.9rem; font-weight: 600; font-family: 'Inter', sans-serif; transition: 0.3s all cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .bk-search input:focus { background: #fff; border-color: var(--primary); box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15); outline: none; }
+        .bk-search input:focus + .bk-search-ico { color: var(--primary); transform: translateY(-50%) scale(1.1); }
+
+        .rm-floor-filter { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 2rem; justify-content: center; }
+        .rm-floor-pill { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1.25rem; border-radius: 999px; border: none; background: #f8fafc; color: #64748b; font-weight: 700; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-sm); }
+        .rm-floor-pill--active { background: var(--primary); color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2); }
+
+        .rm-bed-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid #f1f5f9; }
+        .rm-bed-panel-header span { font-weight: 800; color: #1e293b; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .rm-add-bed-btn { width: 32px; height: 32px; border-radius: 50%; background: var(--primary); color: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+        .rm-add-bed-btn:hover { transform: scale(1.1) rotate(90deg); background: #059669; box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3); }
+
+        .rm-bed-chip { position: relative; padding: 1rem; border-radius: 1rem; border: 1.5px solid #f1f5f9; background: #fff; transition: 0.3s; }
+        .rm-bed-chip--occupied { border-color: #fee2e2; background: #fffafb; }
+        .rm-bed-chip--vacant { border-color: #dcfce7; background: #fdfdfd; }
+        
+        .rm-bed-delete-btn { position: absolute; top: -8px; right: -8px; width: 22px; height: 22px; border-radius: 50%; background: #ef4444; color: white; border: none; font-size: 0.65rem; display: flex; align-items: center; justify-content: center; opacity: 0; transform: scale(0.5); cursor: pointer; transition: 0.25s all cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 5; box-shadow: 0 4px 6px rgba(239, 68, 68, 0.2); }
+        .rm-bed-chip:hover .rm-bed-delete-btn { opacity: 1; transform: scale(1); }
+        .rm-bed-delete-btn:hover { background: #dc2626; transform: scale(1.2); }
+        
+        /* Force Modal to Top */
+        #addModal.modal-wrapper { z-index: 4000 !important; }
+    </style>
+</head>
+<body class="admin-page">
+
+    <main class="main-content">
+        <header class="view-header">
+            <div>
+                <h1>Room & Bed Manager <i class="fas fa-bed color-primary"></i></h1>
+                <p>Manage rooms and beds for each floor.</p>
+            </div>
+            <div class="header-actions" style="display:flex; gap:1.5rem; align-items:center;">
+                <div class="bk-search" style="min-width: 300px;">
+                    <i class="fas fa-search bk-search-ico"></i>
+                    <input type="text" id="rmSearch" placeholder="Search rooms..." oninput="filterRooms()">
+                </div>
+            </div>
+        </header>
+
+        <div class="rm-floor-filter" id="floorFilterBar">
+            <button class="rm-floor-pill rm-floor-pill--active" onclick="filterByFloor('all', this)">
+                <i class="fas fa-layer-group"></i> All Floors
+            </button>
+            <button class="rm-floor-pill" onclick="filterByFloor(2, this)">2nd Floor</button>
+            <button class="rm-floor-pill" onclick="filterByFloor(3, this)">3rd Floor</button>
+            <button class="rm-floor-pill" onclick="filterByFloor(4, this)">4th Floor</button>
+        </div>
+
+        <div id="floorSectionsContainer">
+            <!-- Dynamic Content -->
+        </div>
+    </main>
+
+    <!-- Add Room Modal -->
+    <div id="addModal" class="modal-wrapper">
+        <div class="modal-body max-w-500">
+            <div class="modal-header-lite mb-4" style="border-bottom: 2px solid #f1f5f9; padding-bottom: 1rem;">
+                <h2 class="font-bold" style="font-size: 1.5rem; color: var(--text-primary);"><i class="fas fa-plus-circle color-primary"></i> Add Room to <span id="currentFloorLabel">Floor</span></h2>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Adding a new unit to the dormitory_db system.</p>
+            </div>
+            
+            <form onsubmit="handleAddRoom(event)">
+                <div class="form-group mb-5" style="display:none;">
+                    <label style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: block;">Target Floor</label>
+                    <select id="add_floor_no" class="input-select w-full" style="padding: 0.85rem; border-radius: 1rem;" required>
+                        <option value="2">2nd Floor</option>
+                        <option value="3">3rd Floor</option>
+                        <option value="4">4th Floor</option>
+                    </select>
+                </div>
+                <div class="form-group mb-5">
+                    <label style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: block;">Room Name / Designation</label>
+                    <input type="text" id="add_room_name" class="input-text w-full" style="padding: 0.85rem; border-radius: 1rem;" required placeholder="e.g. 201-A or Suite 101">
+                </div>
+                <div class="form-group mb-6">
+                    <label style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem; display: block;">Bed Capacity</label>
+                    <div style="display:flex; align-items:center; gap:1rem;">
+                        <input type="number" id="add_beds_count" class="input-text" style="flex:1; padding: 0.85rem; border-radius: 1rem;" 
+                               value="4" min="1" max="50" required>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); width: 120px;">Minimum 1 bed per room.</div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer-lite" style="display:flex; gap:1rem; margin-top: 2rem;">
+                    <button type="button" onclick="closeModal('addModal')" class="btn-action" style="flex:1; padding: 1rem; border-radius: 1rem;">Back</button>
+                    <button type="submit" class="btn-action btn-confirm" style="flex:2; padding: 1rem; border-radius: 1rem; font-weight: 800;">
+                        <i class="fas fa-save"></i> Save Room Registry
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="../assets/js/state.js"></script>
+    <script src="../assets/js/admin-components.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminComponents.renderSidebar('rooms');
+            AdminComponents.renderMobileHeader('Manage Rooms');
+            renderAll();
+        });
+
+        function renderAll() {
+            const container = document.getElementById('floorSectionsContainer');
+            const rooms = DormState.data.rooms;
+            const availableFloors = [2, 3, 4]; // Fixed floors for our dormitory_db
+
+            container.innerHTML = availableFloors.map(f => {
+                const floorRooms = rooms.filter(r => r.floor_no == f);
+                return `
+                <section class="rm-floor-section" data-floor="${f}">
+                    <div class="rm-floor-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem; padding-bottom:1rem; border-bottom:2px solid #f1f5f9;">
+                        <div class="rm-floor-title" style="font-size:1.25rem; font-weight:800; color:var(--primary)">
+                            <i class="fas fa-layer-group"></i> ${getFloorLabel(f)}
+                        </div>
+                        <button class="btn-action btn-confirm" onclick="openAddModal(${f})" style="font-size:0.7rem; padding:0.4rem 0.8rem; border-radius:0.75rem; min-width:unset;">
+                            <i class="fas fa-plus"></i> Room
+                        </button>
+                    </div>
+                    <div class="rm-room-list">
+                        ${floorRooms.length > 0 ? floorRooms.map(r => renderRoomRow(r)).join('') : '<p style="color:var(--text-muted); font-style:italic; font-size:0.85rem; padding:1rem;">No rooms on this floor yet.</p>'}
+                    </div>
+                </section>`;
+            }).join('');
+        }
+
+        function renderRoomRow(r) {
+            const beds = DormState.getBeds(r.id);
+            const occupied = beds.filter(b => b.status === 'Occupied').length;
+            const vac = beds.length - occupied;
+            const pct = beds.length > 0 ? Math.round((occupied / beds.length) * 100) : 0;
+            
+            return `
+            <div class="rm-row-wrap" data-room-id="${r.id}">
+                <div class="rm-row" onclick="toggleBeds(${r.id})">
+                    <button class="rm-expand-btn" id="expand-${r.id}"><i class="fas fa-chevron-right"></i></button>
+                    <div class="rm-row-identity">
+                        <div class="rm-room-icon"><i class="fas fa-door-open"></i></div>
+                        <div class="rm-row-info">
+                            <span class="rm-room-name">Room ${r.room_no} ${r.room_name ? `<span style="font-weight:400; opacity:0.6; margin-left:5px;">| ${r.room_name}</span>` : ''}</span>
+                        </div>
+                    </div>
+                    <div class="rm-row-progress">
+                        <div class="rm-progress-track"><div class="rm-progress-fill" style="width:${pct}%"></div></div>
+                        <span class="rm-progress-label">${pct}%</span>
+                    </div>
+                    <span class="rm-badge ${vac === 0 ? 'rm-badge--full' : vac < (beds.length) ? 'rm-badge--partial' : 'rm-badge--vacant'}">
+                        ${occupied}/${beds.length} ${vac === 0 ? 'FULL' : 'OCCUPIED'}
+                    </span>
+                    <div class="rm-row-actions" onclick="event.stopPropagation()">
+                        <button class="btn-action btn-danger" style="padding: 0.4rem 0.6rem; min-width: unset;" onclick="handleDeleteRoom(${r.id})"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+                <div class="rm-bed-panel" id="beds-${r.id}">
+                    <div class="rm-bed-panel-inner">
+                        <div class="rm-bed-panel-header">
+                            <span>Beds in Room ${r.room_no}</span>
+                            <button class="rm-add-bed-btn" onclick="handleAddBed(${r.id})"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="rm-bed-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:1rem;">
+                            ${(() => {
+                                const bunks = [];
+                                for(let i=0; i<beds.length; i+=2) bunks.push(beds.slice(i, i+2));
+                                return bunks.map((pair, idx) => `
+                                    <div class="rm-bunk-stack" style="display:flex; flex-direction:column; gap:0.5rem; background:#f8fafc; padding:0.75rem; border-radius:1rem; border:1.5px solid #edf2f7;">
+                                        <div style="font-size:0.6rem; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:0.25rem;">Bunk ${String.fromCharCode(65 + idx)}</div>
+                                        ${pair.sort((a,b) => b.bed_no - a.bed_no).map(b => renderBedChip(b)).join('')}
+                                    </div>
+                                `).join('');
+                            })()}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderBedChip(b) {
+            const isOcc = b.status === 'Occupied';
+            return `
+            <div class="rm-bed-chip ${isOcc ? 'rm-bed-chip--occupied' : 'rm-bed-chip--vacant'}">
+                ${!isOcc ? `<button class="rm-bed-delete-btn" onclick="handleDeleteBed(${b.id})"><i class="fas fa-times"></i></button>` : ''}
+                <div class="rm-bed-chip-top" style="flex-direction:row; align-items:center; gap:0.35rem; padding:0;">
+                    <span class="rm-bed-label" style="font-size:0.7rem; flex:1;"><i class="fas fa-bed"></i> ${b.bed_no % 2 === 0 ? 'Upper Deck' : 'Lower Deck'}</span>
+                    <span class="rm-bed-status-dot ${isOcc ? 'dot--occupied' : 'dot--vacant'}"></span>
+                </div>
+                <span class="rm-bed-status-text">${b.status}</span>
+                <button class="btn-action ${isOcc ? 'btn-occ-toggle' : 'btn-danger'}" style="margin-top:0.5rem; width:100%; border-radius:0.5rem; padding:0.4rem; font-size:0.75rem;"
+                        onclick="handleToggleBed(${b.id}, '${isOcc ? 'Available' : 'Occupied'}')">
+                    ${isOcc ? '<i class="fas fa-check-circle"></i> Release' : '<i class="fas fa-user-check"></i> Occupy'}
+                </button>
+            </div>`;
+        }
+
+        function getFloorLabel(n) { return n + (n==2?'nd':n==3?'rd':'th') + " Floor"; }
+
+        function toggleBeds(id) {
+            const p = document.getElementById('beds-'+id);
+            const b = document.getElementById('expand-'+id);
+            const isOpen = p.classList.toggle('rm-bed-panel--open');
+            b.classList.toggle('expanded', isOpen);
+        }
+
+        function filterByFloor(f, btn) {
+            document.querySelectorAll('.rm-floor-pill').forEach(p => p.classList.remove('rm-floor-pill--active'));
+            btn.classList.add('rm-floor-pill--active');
+            document.querySelectorAll('.rm-floor-section').forEach(s => {
+                s.style.display = (f === 'all' || s.dataset.floor == f) ? '' : 'none';
+            });
+        }
+
+        // Ensure functions are truly global for inline onclick reliability
+        window.openAddModal = function(floorId = null) { 
+            console.log('Opening modal for floor:', floorId);
+            const floorSel = document.getElementById('add_floor_no');
+            const floorLabel = document.getElementById('currentFloorLabel');
+            
+            if (floorId) {
+                floorSel.value = floorId;
+                if(floorSel.parentElement) floorSel.parentElement.style.display = 'none'; 
+                floorLabel.innerText = getFloorLabel(floorId);
+            } else {
+                if(floorSel.parentElement) floorSel.parentElement.style.display = 'block'; 
+                floorSel.disabled = false;
+                floorLabel.innerText = "General Entry";
+            }
+            const modal = document.getElementById('addModal');
+            if(modal) {
+                modal.style.display = 'flex';
+                modal.classList.add('open');
+            }
+        };
+
+        window.closeModal = function(id) { 
+            const el = document.getElementById(id);
+            if(el) {
+                el.style.display = 'none'; 
+                el.classList.remove('open');
+            }
+        };
+
+        // Standard function definitions for other logic
+        function getFloorLabel(n) { return n + (n==2?'nd':n==3?'rd':'th') + " Floor"; }
+
+        function handleAddRoom(e) {
+            e.preventDefault();
+            const name = document.getElementById('add_room_name').value.trim();
+            const f = parseInt(document.getElementById('add_floor_no').value);
+            const b = parseInt(document.getElementById('add_beds_count').value);
+
+            if (!name) return;
+
+            // Check if room already exists
+            const exists = DormState.data.rooms.find(r => r.room_no === name && r.floor_no === f);
+            if (exists) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Duplicate Room',
+                    text: `Room ${name} already exists on this floor.`
+                });
+                return;
+            }
+
+            try {
+                // We use 'name' as 'roomNo' for the database
+                DormState.addRoom(name, f, b);
+                renderAll();
+                closeModal('addModal');
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Room Added',
+                    text: `Room ${name} with ${b} beds has been created on Floor ${f}.`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                
+                // Clear form
+                document.getElementById('add_room_name').value = '';
+            } catch (err) {
+                console.error(err);
+                Swal.fire('Error', 'Failed to add room.', 'error');
+            }
+        }
+
+        function handleDeleteRoom(id) {
+            if(confirm('Delete room?')) { DormState.deleteRoom(id); renderAll(); }
+        }
+
+        function handleAddBed(id) {
+            DormState.addBed(id); renderAll();
+            // keep it open
+            setTimeout(() => toggleBeds(id), 0);
+        }
+
+        function handleDeleteBed(id) {
+             if(confirm('Delete bed?')) { DormState.deleteBed(id); renderAll(); }
+        }
+
+        function handleToggleBed(id, stat) {
+            DormState.toggleBedStatus(id, stat); renderAll();
+        }
+
+        function filterRooms() {
+            const q = document.getElementById('rmSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('.rm-row-wrap');
+            rows.forEach(row => {
+                const text = row.querySelector('.rm-room-name').innerText.toLowerCase();
+                const floor = row.closest('.rm-floor-section')?.dataset.floor || '';
+                row.style.display = (text.includes(q) || floor.includes(q)) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

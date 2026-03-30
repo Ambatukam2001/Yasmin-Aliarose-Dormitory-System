@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Settings | Yasmin & Aliarose Dormitory</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+</head>
+<body class="admin-page">
+
+    <main class="main-content">
+        <header class="view-header">
+            <div>
+                <h1>System Settings <i class="fas fa-cog color-primary"></i></h1>
+                <p>Manage security protocols and account preferences.</p>
+            </div>
+        </header>
+
+        <div class="grid grid-2" style="gap: 2rem;">
+            <!-- Security Card -->
+            <div class="settings-section main-card">
+                <h3 class="font-bold mb-2">Security Update <i class="fas fa-user-shield color-primary"></i></h3>
+                <p class="text-sm text-muted mb-4">Manage your admin access password.</p>
+                
+                <div id="passwordAlert" class="alert mb-4" style="display:none; padding: 1rem; border-radius: 0.75rem; font-size: 0.85rem;"></div>
+
+                <form id="passwordForm" onsubmit="AdminLogic.handlePasswordChange(event)">
+                    <div class="form-group mb-4">
+                        <label>Current Password</label>
+                        <input type="password" id="current_password" class="input-text w-full" required placeholder="••••••••">
+                    </div>
+                    <div class="form-group mb-4">
+                        <label>New Password</label>
+                        <input type="password" id="new_password" class="input-text w-full" required placeholder="Enter new password">
+                    </div>
+                    <div class="form-group mb-6">
+                        <label>Confirm Password</label>
+                        <input type="password" id="confirm_password" class="input-text w-full" required placeholder="Retype new password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Update Password</button>
+                </form>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="settings-section danger-zone main-card">
+                <h3 class="font-bold text-danger mb-2">Danger Zone <i class="fas fa-trash-alt"></i></h3>
+                <p class="text-sm text-muted mb-4">Permanent account deletion.</p>
+                <div class="alert alert-danger mb-6">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>Wait! Deleting your account will revoke all your admin access and CLEAR ALL data.</span>
+                </div>
+                <button onclick="AdminLogic.handleResetSystem()" class="btn btn-danger btn-full">Reset System Data</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Scripts -->
+    <script src="../assets/js/state.js"></script>
+    <script src="../assets/js/admin-components.js"></script>
+    <script src="../assets/js/admin-logic.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            AdminComponents.renderSidebar('settings');
+            AdminComponents.renderMobileHeader('Settings');
+        });
+    </script>
+</body>
+</html>

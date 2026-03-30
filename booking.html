@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Your Space</title>
+    <!-- External Assets -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+ 
+<main class="booking-page-wrap">
+<div class="booking-container-inner">
+
+    <!-- PAGE HEADER -->
+    <div class="bk-header">
+        <h1 class="bk-title">Find Your Room</h1>
+        <p class="bk-sub">Choose a floor, pick your room, and secure your bed in minutes.</p>
+    </div>
+
+    <!-- FLOOR TABS -->
+    <div class="floor-tab-bar" id="floorTabBar">
+        <button class="floor-tab active" data-floor="2" onclick="switchFloor(2, this)">
+            <span class="ft-label">2nd Floor</span>
+            <span class="ft-badge" id="badge-2">Loading...</span>
+        </button>
+        <button class="floor-tab" data-floor="3" onclick="switchFloor(3, this)">
+            <span class="ft-label">3rd Floor</span>
+            <span class="ft-badge" id="badge-3">Loading...</span>
+        </button>
+        <button class="floor-tab" data-floor="4" onclick="switchFloor(4, this)">
+            <span class="ft-label">4th Floor</span>
+            <span class="ft-badge" id="badge-4">Loading...</span>
+        </button>
+    </div>
+
+    <!-- SEARCH BAR -->
+    <div class="bk-search">
+        <i class="fas fa-search bk-search-ico"></i>
+        <input type="text" id="roomSearch" placeholder="Search room number (e.g. 201)…" oninput="filterRoomCards()">
+    </div>
+
+    <!-- ROOMS GRID -->
+    <div id="roomsGrid" class="rooms-grid"></div>
+
+</div>
+</main>
+
+<!-- Netlify Compatibility Library -->
+<script src="assets/js/state.js"></script>
+<script src="assets/js/components.js"></script>
+<script src="assets/js/booking.js"></script>
+
+<script>
+    let activeFloor = 2;
+
+    function switchFloor(floor, btn) {
+        document.querySelectorAll('.floor-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        activeFloor = floor;
+        loadRooms(floor);
+    }
+
+    function loadRooms(floor) {
+        const rooms = DormState.getRooms(floor);
+        renderRooms(rooms, floor);
+    }
+
+    function renderRooms(rooms, floor) {
+        const grid = document.getElementById('roomsGrid');
+        grid.innerHTML = rooms.map(r => {
+            const beds = DormState.getBeds(r.id);
+            const occ = beds.filter(b => b.status === 'Occupied').length;
+            const res = beds.filter(b => b.status === 'Reserved').length;
+            const total = beds.length;
+            const free = total - occ - res;
+            const isFull = free <= 0;
+            const occPct = total > 0 ? Math.round((occ / total) * 100) : 0;
+            const resPct = total > 0 ? Math.round((res / total) * 100) : 0;
+            const barClr = isFull ? '#ef4444' : (occPct >= 70 ? '#f59e0b' : '#10b981');
+
+            return `
+            <div class="room-card ${isFull ? 'room-card--full' : ''}" 
+                 ${isFull ? '' : `onclick="openBookingModal(${r.id}, '${r.room_no}', ${r.floor_no})"`}>
+                <span class="room-status-pill ${isFull ? 'pill--full' : 'pill--avail'}">
+                    <i class="fas ${isFull ? 'fa-lock' : 'fa-check-circle'}"></i>
+                    ${isFull ? 'Full' : 'Available'}
+                </span>
+                <h3 class="room-number">Room ${r.room_no}</h3>
+                <p class="room-floor">${floor}${floor===2?'nd':floor===3?'rd':'th'} Floor</p>
+                <div class="room-vacancy ${isFull ? 'room-vacancy--full' : ''}">
+                    <i class="fas fa-bed"></i>
+                    ${isFull ? 'No beds available' : `<strong>${free}</strong> of ${total} beds free`}
+                </div>
+                <div class="room-bar-track">
+                    <div class="room-bar-fill" style="width:${occPct}%;background:${barClr};"></div>
+                    <div class="room-bar-res"  style="width:${resPct}%;"></div>
+                </div>
+                <div class="room-bar-meta"><span>${occPct}% occupied</span><span>${free} free</span></div>
+                <div class="room-footer">
+                    <div class="room-legend">
+                        <span class="leg-dot leg-dot--occ"></span> Occ &nbsp;
+                        <span class="leg-dot leg-dot--res"></span> Res
+                    </div>
+                    <div class="room-cta ${isFull ? 'room-cta--full' : ''}">${isFull ? 'Unavailable' : 'Select <i class="fas fa-arrow-right"></i>'}</div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function filterRoomCards() {
+        const q = document.getElementById('roomSearch').value.toLowerCase();
+        document.querySelectorAll('.room-card').forEach(card => {
+            const num = card.querySelector('.room-number').innerText.toLowerCase();
+            card.style.display = num.includes(q) ? '' : 'none';
+        });
+    }
+
+    function updateBadges() {
+        [2,3,4].forEach(f => {
+            const rooms = DormState.getRooms(f);
+            let total = 0, occ = 0;
+            rooms.forEach(r => {
+                const beds = DormState.getBeds(r.id);
+                total += beds.length;
+                occ += beds.filter(b => b.status === 'Occupied').length;
+            });
+            const free = total - occ;
+            document.getElementById(`badge-${f}`).innerText = free > 0 ? `${free} free` : 'FULL';
+            document.getElementById(`badge-${f}`).className = `ft-badge ${free <= 0 ? 'ft-badge--full' : ''}`;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        if (localStorage.getItem('theme') === 'dark') {
+            document.body.classList.add('dark-theme');
+        }
+        Components.renderHeader("Bookings");
+        Components.renderFooter();
+        loadRooms(2);
+        updateBadges();
+    });
+    
+    function toggleTheme() {
+        const isDark = document.body.classList.toggle('dark-theme');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        const switchBtn = document.getElementById('themeToggleBtn');
+        if (switchBtn) switchBtn.checked = isDark;
+    }
+</script>
+
+<style>
+/* Synchronized CSS for Dark Theme & Global Variables */
+.booking-page-wrap { background: var(--background); min-height: 80vh; padding: 2rem 1rem 4rem; transition: background 0.3s ease; }
+.booking-container-inner { max-width: 1100px; margin: 0 auto; }
+.bk-header { text-align: center; margin-bottom: 2rem; }
+.bk-title { font-family: 'Outfit', sans-serif; font-weight: 900; font-size: 2.2rem; color: var(--text-primary); }
+.bk-sub { color: var(--text-secondary); }
+
+.floor-tab-bar { display: flex; justify-content: center; gap: .75rem; margin-bottom: 1.75rem; }
+.floor-tab { display: flex; flex-direction: column; align-items: center; padding: .85rem 2rem; border-radius: 1.25rem; background: var(--white); border: 2px solid var(--glass-border); cursor: pointer; min-width: 130px; color: var(--text-primary); transition: 0.3s; }
+.floor-tab.active { border-color: var(--primary); background: var(--primary-subtle); box-shadow: 0 4px 16px rgba(16,185,129,.15); color: var(--primary-dark); }
+.ft-label { font-weight: 800; }
+.ft-badge { font-size: .65rem; font-weight: 800; background: #d1fae5; color: #10b981; padding: .2rem .6rem; border-radius: 99px; margin-top: .3rem; }
+.ft-badge--full { background: #fee2e2; color: #b91c1c; }
+
+.bk-search { position: relative; max-width: 480px; margin: 0 auto 2rem; }
+.bk-search-ico { position: absolute; left: 1.1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
+.bk-search input { width: 100%; padding: .85rem 2.8rem; border: 2px solid var(--glass-border); border-radius: 1rem; background: var(--white); color: var(--text-primary); transition: 0.3s; }
+.bk-search input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 4px var(--primary-subtle); }
+
+.rooms-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
+.room-card { background: var(--white); border-radius: 1.25rem; padding: 1.35rem; border: 2px solid var(--glass-border); cursor: pointer; display: flex; flex-direction: column; gap: .6rem; transition: 0.3s; }
+.room-card:hover { transform: translateY(-5px); border-color: var(--primary); box-shadow: var(--shadow-lg); }
+.room-status-pill { font-size: .62rem; font-weight: 900; padding: .28rem .7rem; border-radius: 99px; width: fit-content; }
+.pill--avail { background: #d1fae5; color: #065f46; }
+.pill--full { background: #fee2e2; color: #991b1b; }
+
+.room-number { font-size: 1.3rem; font-weight: 900; color: var(--text-primary); }
+.room-floor { font-size: 0.8rem; color: var(--text-secondary); }
+.room-vacancy { display: flex; align-items: center; gap: .4rem; font-size: .83rem; font-weight: 600; color: var(--primary); }
+.room-bar-track { height: 6px; background: var(--off-white); border-radius: 99px; overflow: hidden; display: flex; }
+.room-bar-fill { height: 100%; border-radius: 99px; }
+.room-bar-res { height: 100%; background: #fbbf24; }
+.room-bar-meta { display: flex; justify-content: space-between; font-size: .62rem; color: var(--text-muted); }
+
+.room-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 5px; }
+.room-legend { font-size: .65rem; color: var(--text-muted); }
+.leg-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; }
+.leg-dot--occ { background: #10b981; }
+.leg-dot--res { background: #fbbf24; }
+.room-cta { background: var(--primary); color: #fff; font-weight: 800; font-size: .7rem; padding: .4rem .9rem; border-radius: .55rem; border: none; cursor: pointer; transition: 0.2s; }
+.room-cta:hover { background: var(--primary-dark); }
+</style>
+
+</body>
+</html>

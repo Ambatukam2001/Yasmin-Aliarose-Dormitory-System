@@ -1,0 +1,29 @@
+# Dependency directories
+node_modules/
+vendor/
+
+# Configuration files (SENSITIVE DATA)
+config/*.env
+config/*.php
+!config/config.env.example
+
+# IDE / OS specific
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs and databases
+*.log
+*.sqlite
+private/backups/
+/temp/
+/uploads/
+# (If you want to keep the upload folder structure but not the images)
+/uploads/*
+!/uploads/.gitkeep
+
+# Local assets
+/assets/images/logo_*.png
+*.bak
+*.tmp
