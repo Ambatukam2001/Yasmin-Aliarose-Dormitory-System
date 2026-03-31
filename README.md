@@ -14,6 +14,6 @@ The system automatically reads database configuration from `config/config.env`. 
 
 ## Accessing the Project
 Since everything public corresponds to the `public/` directory, open your browser and navigate to:
-**http://localhost/Dormitory_System/public/**
+**yadorm.vercel.app**
 
 Enjoy the organized and bug-free system!
