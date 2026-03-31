@@ -13,7 +13,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Project Styles -->
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
 
     <style>
         /* ============================================================
@@ -361,7 +361,7 @@
 <header>
     <div class="container">
         <a href="index.html" class="logo">
-            <img src="assets/images/logo.png" alt="Logo" style="height:45px; width:45px; object-fit:contain; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+            <img src="../assets/images/logo.png" alt="Logo" style="height:45px; width:45px; object-fit:contain; border-radius:12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
         </a>
 
         <nav>

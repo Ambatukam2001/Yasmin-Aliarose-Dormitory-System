@@ -78,7 +78,7 @@ const AdminLogic = {
         
         // Set default monthly amount
         const amtInput = document.querySelector('input[name="amount"]');
-        if (amtInput) amtInput.value = b?.monthly_rent || 1500;
+        if (amtInput) amtInput.value = b?.monthly_rent || 1600;
         
         // Calculate default next due date (1 month from now)
         const d = new Date();

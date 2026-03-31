@@ -174,7 +174,7 @@
                         <small class="text-xs font-bold text-slate-400 uppercase">${b.booking_status}</small>
                     </td>
                     <td>
-                        <div class="text-sm font-bold ${isOverdue ? 'text-danger' : 'text-slate-700'}">₱${parseFloat(b.monthly_rent || 1500).toLocaleString()}</div>
+                        <div class="text-sm font-bold ${isOverdue ? 'text-danger' : 'text-slate-700'}">₱${parseFloat(b.monthly_rent || 1600).toLocaleString()}</div>
                         <div class="text-xs ${isOverdue ? 'text-danger font-bold' : 'text-muted'}" style="margin-top:2px">Due: ${b.due_date || '—'}</div>
                     </td>
                     <td class="text-right">
@@ -276,7 +276,7 @@
             const b = DormState.getBookings().find(x => x.id == id);
             document.getElementById('pay_id').value = id;
             document.getElementById('pay_name').textContent = name;
-            document.getElementById('pay_amount').value = b?.monthly_rent || 1500;
+            document.getElementById('pay_amount').value = b?.monthly_rent || 1600;
             
             let d = new Date();
             d.setMonth(d.getMonth() + 1);
