@@ -603,7 +603,8 @@ function injectStyles() {
 
     .bk-step-hint{font-size:.82rem;color:#64748b;margin:0 0 1rem;font-weight:500;}
 
-    .bk-bed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem;margin-bottom:1.5rem;}
+    .bk-bed-grid{display:flex;gap:.75rem;margin-bottom:1.5rem;overflow-x:auto;padding-bottom:.75rem;-webkit-overflow-scrolling:touch;}
+    .bk-bunk-unit{flex:0 0 160px;min-width:160px;}
     .bk-bed-loading,.bk-bed-error{grid-column:1/-1;text-align:center;color:#94a3b8;font-size:.85rem;padding:1.5rem 0;}
     .bk-bed-chip{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.85rem .4rem;border-radius:.85rem;border:2px solid;text-align:center;transition:all .18s;}
     .bk-bed-icon{font-size:1.2rem;}
