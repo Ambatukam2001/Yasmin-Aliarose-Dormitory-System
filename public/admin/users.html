@@ -34,10 +34,13 @@
                 <p>Manage all active residents and archived accounts.</p>
             </div>
             <div class="header-actions">
-                <div class="bk-search" style="margin-bottom:0; min-width:300px;">
+                <div class="bk-search">
                     <i class="fas fa-search bk-search-ico"></i>
                     <input type="text" id="residentSearch" placeholder="Search by name or number..." oninput="filterResidents()">
                 </div>
+                <button class="btn-action btn-confirm" onclick="openAddResidentModal()" style="padding:0.85rem 1.5rem; border-radius:1rem;">
+                    <i class="fas fa-user-plus"></i> Add Resident
+                </button>
             </div>
         </header>
 
@@ -153,6 +156,68 @@
                 <div class="actions-flex">
                     <button type="button" onclick="closeModal('paymentModal')" class="btn-action">Cancel</button>
                     <button type="submit" class="btn-action btn-confirm">Confirm Payment</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Add Resident -->
+    <div id="addResidentModal" class="modal-wrapper">
+        <div class="modal-body max-w-600">
+            <h2 class="font-bold mb-4">Add New Resident <i class="fas fa-user-plus color-primary"></i></h2>
+            <form id="addResidentForm" onsubmit="handleAddResidentSubmit(event)">
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Full Name</label>
+                        <input type="text" id="add_name" placeholder="e.g. Juan dela Cruz" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Contact Number</label>
+                        <input type="text" id="add_contact" placeholder="09XXXXXXXXX" required>
+                    </div>
+                </div>
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Guardian Name</label>
+                        <input type="text" id="add_guardian" placeholder="Parent / Guardian" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Guardian Contact</label>
+                        <input type="text" id="add_guardian_contact" placeholder="09XXXXXXXXX" required>
+                    </div>
+                </div>
+                <div class="grid grid-2 gap-4 mb-4">
+                    <div class="form-group">
+                        <label>Resident Category</label>
+                        <select id="add_category" required>
+                            <option value="">— Select —</option>
+                            <option value="College">College</option>
+                            <option value="High School">High School</option>
+                            <option value="Reviewer">Reviewer</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>School Name</label>
+                        <input type="text" id="add_school" placeholder="e.g. UP Diliman">
+                    </div>
+                </div>
+                <div class="grid grid-2 gap-4 mb-4" id="placementRow">
+                    <div class="form-group">
+                        <label>Room Assignment</label>
+                        <select id="add_room_id" onchange="loadAvailableBeds(this.value)" required>
+                            <option value="">— Select Room —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Bed Selection</label>
+                        <select id="add_bed_id" required disabled>
+                            <option value="">— Select Bed —</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="actions-flex">
+                    <button type="button" onclick="closeModal('addResidentModal')" class="btn-action">Cancel</button>
+                    <button type="submit" class="btn-action btn-confirm">Confirm Resident <i class="fas fa-check" style="margin-left:5px"></i></button>
                 </div>
             </form>
         </div>
@@ -365,6 +430,70 @@
             DormState.processPayment(id, amt, 'Manual (Directory)', due);
             closeModal('paymentModal');
             renderTable();
+        }
+
+        // --- Add Resident Logic ---
+        function openAddResidentModal() {
+            const roomSel = document.getElementById('add_room_id');
+            const rooms = DormState.data.rooms;
+            
+            // Find rooms with available beds
+            const availableRooms = rooms.filter(r => {
+                const beds = DormState.getBeds(r.id);
+                return beds.some(b => b.status === 'Available');
+            });
+
+            roomSel.innerHTML = '<option value="">— Select Room —</option>' + 
+                availableRooms.map(r => `<option value="${r.id}">Room ${r.room_no} (${r.floor_no}${r.floor_no==2?'nd':r.floor_no==3?'rd':'th'} Floor)</option>`).join('');
+            
+            document.getElementById('add_bed_id').innerHTML = '<option value="">— Select Bed —</option>';
+            document.getElementById('add_bed_id').disabled = true;
+            document.getElementById('addResidentModal').style.display = 'flex';
+        }
+
+        function loadAvailableBeds(roomId) {
+            const bedSel = document.getElementById('add_bed_id');
+            if (!roomId) {
+                bedSel.innerHTML = '<option value="">— Select Bed —</option>';
+                bedSel.disabled = true;
+                return;
+            }
+
+            const beds = DormState.getBeds(roomId).filter(b => b.status === 'Available');
+            bedSel.innerHTML = '<option value="">— Select Bed —</option>' + 
+                beds.map(b => `<option value="${b.id}">${b.bed_no % 2 === 0 ? 'Upper Deck' : 'Lower Deck'} (Bed ${b.bed_no})</option>`).join('');
+            bedSel.disabled = false;
+        }
+
+        function handleAddResidentSubmit(e) {
+            e.preventDefault();
+            const formData = {
+                full_name: document.getElementById('add_name').value.trim(),
+                contact_number: document.getElementById('add_contact').value.trim(),
+                guardian_name: document.getElementById('add_guardian').value.trim(),
+                guardian_contact: document.getElementById('add_guardian_contact').value.trim(),
+                category: document.getElementById('add_category').value,
+                school_name: document.getElementById('add_school').value.trim(),
+                bed_id: parseInt(document.getElementById('add_bed_id').value),
+                room_id: parseInt(document.getElementById('add_room_id').value)
+            };
+
+            const result = DormState.addBooking(formData);
+            if (result) {
+                // Confirm it immediately since admin is adding manually
+                DormState.acceptBooking(result.id);
+                
+                closeModal('addResidentModal');
+                document.getElementById('addResidentForm').reset();
+                renderTable();
+                
+                // Show success notification (using standard alert as placeholder for now, or SweetAlert if available)
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire('Success', 'Resident added and bed assigned.', 'success');
+                } else {
+                    alert('Resident added successfully!');
+                }
+            }
         }
     </script>
 </body>

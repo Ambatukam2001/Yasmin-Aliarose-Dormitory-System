@@ -1064,3 +1064,19 @@ input:checked+.slider-pill:before {
 .mobile-admin-header .slider-pill {
     background: #fefefe;
 }
+/* Layout Helpers */
+.grid { display: grid; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 480px) { .grid-2 { grid-template-columns: 1fr; } }
+.gap-4 { gap: 1rem; }
+.max-w-500 { max-width: 500px; }
+.max-w-600 { max-width: 600px; }
+.w-full { width: 100%; }
+
+/* Header Actions Responsiveness */
+.header-actions { display: flex; gap: 1rem; align-items: center; }
+@media (max-width: 768px) {
+  .header-actions { flex-direction: column; width: 100%; gap: 0.75rem; }
+  .header-actions .bk-search, .header-actions button { width: 100% !important; min-width: unset !important; }
+  .header-actions button { order: -1; } /* Button first on mobile for better visibility */
+}
