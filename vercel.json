@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/booking", "destination": "/public/booking.html" },
+    { "source": "/login", "destination": "/public/login.html" },
+    { "source": "/admin", "destination": "/public/admin/dashboard.html" },
+    { "source": "/admin/(.*)", "destination": "/public/admin/$1" },
+    { "source": "/assets/(.*)", "destination": "/public/assets/$1" },
+    { "source": "/uploads/(.*)", "destination": "/public/uploads/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
+      ]
+    }
+  ]
+}
