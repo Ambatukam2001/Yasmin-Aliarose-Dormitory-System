@@ -23,10 +23,10 @@ if (!loadEnv($env_path)) {
     loadEnv(__DIR__ . '/../../config/config.env');
 }
 
-$host = $_ENV['DB_HOST'] ?? 'localhost';
+$host = $_ENV['DB_HOST'] ?? 'mysql.railway.internal';
 $username = $_ENV['DB_USER'] ?? 'root';
-$password = $_ENV['DB_PASS'] ?? '';
-$dbname = $_ENV['DB_NAME'] ?? 'dormitory_db';
+$password = $_ENV['DB_PASS'] ?? 'HslLMCqxEazuJbAnlvRrKThVfSuYtTMa';
+$dbname = $_ENV['DB_NAME'] ?? 'railway';
 
 $user = $username;
 $pass = $password;
