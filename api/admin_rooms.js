@@ -1,4 +1,4 @@
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, status, payload) {
   res.status(status).json(payload);
@@ -11,6 +11,7 @@ module.exports = async (req, res) => {
   if (!action) return json(res, 400, { success: false, message: 'Missing action' });
 
   try {
+    const pool = getPool();
     if (action === 'add') {
       const { room_no, floor_no, beds_count } = req.body || {};
       const roomNo = (room_no || '').toString().trim();
@@ -41,7 +42,7 @@ module.exports = async (req, res) => {
 
         return json(res, 200, { success: true });
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally
@@ -62,7 +63,7 @@ module.exports = async (req, res) => {
         await client.query('COMMIT');
         return json(res, 200, { success: true });
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally

@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const Busboy = require('busboy');
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, statusCode, payload) {
   res.status(statusCode).json(payload);
@@ -16,7 +16,7 @@ async function generateUniqueBookingRef() {
   // Try a few times to avoid rare collisions with the UNIQUE constraint.
   for (let i = 0; i < 5; i++) {
     const booking_ref = randomBookingRef();
-    const check = await pool.query('SELECT id FROM bookings WHERE booking_ref = $1 LIMIT 1', [booking_ref]);
+    const check = await getPool().query('SELECT id FROM bookings WHERE booking_ref = $1 LIMIT 1', [booking_ref]);
     if (check.rows.length === 0) return booking_ref;
   }
   throw new Error('Could not generate unique booking reference');
@@ -121,7 +121,7 @@ module.exports = async (req, res) => {
   }
 
   // Transaction-like workflow: reserve bed first, then insert booking.
-  const client = await pool.connect();
+  const client = await getPool().connect();
   try {
     await client.query('BEGIN');
 

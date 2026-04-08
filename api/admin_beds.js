@@ -1,4 +1,4 @@
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, status, payload) {
   res.status(status).json(payload);
@@ -11,6 +11,7 @@ module.exports = async (req, res) => {
   if (!action) return json(res, 400, { success: false, message: 'Missing action' });
 
   try {
+    const pool = getPool();
     if (action === 'toggle') {
       const { bed_id, status } = req.body || {};
       const bedId = parseInt(bed_id || '0', 10);
@@ -77,7 +78,7 @@ module.exports = async (req, res) => {
           },
         });
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally
@@ -151,7 +152,7 @@ module.exports = async (req, res) => {
           },
         });
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally
@@ -234,7 +235,7 @@ module.exports = async (req, res) => {
           },
         });
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally

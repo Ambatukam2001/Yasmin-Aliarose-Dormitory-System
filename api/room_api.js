@@ -1,4 +1,4 @@
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, statusCode, payload) {
   res.status(statusCode).json(payload);
@@ -12,6 +12,7 @@ module.exports = async (req, res) => {
   const action = url.searchParams.get('action') || '';
 
   try {
+    const pool = getPool();
     if (action === 'all') {
       const floorNo = parseInt(url.searchParams.get('floor_no') || '2', 10);
       const q = `

@@ -1,4 +1,4 @@
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, status, payload) {
   res.status(status).json(payload);
@@ -29,7 +29,7 @@ async function fetchBookings(filter) {
     ${where}
     ORDER BY b.created_at DESC
   `;
-  const result = await pool.query(q, params);
+  const result = await getPool().query(q, params);
   return result.rows;
 }
 
@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
     if (!bookingId) return json(res, 400, { success: false, message: 'Invalid booking id' });
 
     if (action === 'accept') {
-      await pool.query(
+      await getPool().query(
         "UPDATE bookings SET booking_status = 'Active', payment_status = 'Confirmed' WHERE id = $1",
         [bookingId]
       );
@@ -63,7 +63,7 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'decline') {
-      await pool.query(
+      await getPool().query(
         "UPDATE bookings SET booking_status = 'Cancelled', payment_status = 'Declined' WHERE id = $1",
         [bookingId]
       );
@@ -72,7 +72,7 @@ module.exports = async (req, res) => {
 
     if (action === 'checkout') {
       // Mark completed and free bed.
-      const client = await pool.connect();
+      const client = await getPool().connect();
       try {
         await client.query('BEGIN');
         const bRes = await client.query('SELECT bed_id FROM bookings WHERE id = $1', [bookingId]);
@@ -91,7 +91,7 @@ module.exports = async (req, res) => {
         }
         await client.query('COMMIT');
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally
@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
       const amt = parseFloat(amount || '0');
       if (!amt) return json(res, 400, { success: false, message: 'Invalid amount' });
 
-      const client = await pool.connect();
+      const client = await getPool().connect();
       try {
         await client.query('BEGIN');
         await client.query(
@@ -135,7 +135,7 @@ module.exports = async (req, res) => {
 
         await client.query('COMMIT');
       } catch (e) {
-        await pool.query('ROLLBACK');
+        await client.query('ROLLBACK');
         throw e;
       } finally {
         // eslint-disable-next-line no-unsafe-finally

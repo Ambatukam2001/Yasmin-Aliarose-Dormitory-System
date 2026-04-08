@@ -1,4 +1,4 @@
-const { pool } = require('./_db');
+const { getPool } = require('./_db');
 
 function json(res, status, payload) {
   res.status(status).json(payload);
@@ -23,7 +23,7 @@ module.exports = async (req, res) => {
       WHERE booking_id = $1
       ORDER BY payment_date DESC
     `;
-    const result = await pool.query(q, [bookingId]);
+    const result = await getPool().query(q, [bookingId]);
     return json(res, 200, result.rows);
   } catch (e) {
     return json(res, 500, { error: e.message });
