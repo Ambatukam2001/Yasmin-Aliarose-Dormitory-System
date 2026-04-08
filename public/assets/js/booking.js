@@ -138,9 +138,9 @@ const BK_BASE = (() => {
                     <div class="bk-gcash-info">
                         <div class="bk-gcash-icon"><i class="fas fa-mobile-alt"></i></div>
                         <div>
-                            <p class="bk-gcash-label">Send ₱${DormState.data.settings.bed_price.toLocaleString()} to</p>
-                            <p class="bk-gcash-number">${DormState.data.settings.gcash_number}</p>
-                            <p class="bk-gcash-name">${DormState.data.settings.site_name}</p>
+                            <p class="bk-gcash-label">Send <span id="bkGcashPrice">₱1,600</span> to</p>
+                            <p class="bk-gcash-number" id="bkGcashNumber">09915740177</p>
+                            <p class="bk-gcash-name"   id="bkGcashName">Yasmin &amp; Aliarose Dormitory</p>
                         </div>
                     </div>
                     <div class="bk-dropzone" id="bkDropzone" onclick="document.getElementById('bkReceiptFile').click()">
@@ -162,7 +162,7 @@ const BK_BASE = (() => {
                         <i class="fas fa-info-circle"></i>
                         <div>
                             <strong>Cash Payment</strong>
-                            <p>No receipt needed. Please pay ₱${DormState.data.settings.bed_price.toLocaleString()}.00 upon check-in. Your booking will be confirmed by the admin.</p>
+                            <p>No receipt needed. Please pay <span id="bkCashPrice">₱1,600</span>.00 upon check-in. Your booking will be confirmed by the admin.</p>
                         </div>
                     </div>
                     <div class="bk-map-preview" style="border-radius:1rem; overflow:hidden; border:1.5px solid #e2e8f0; margin-top:1rem; height:200px;">
@@ -318,12 +318,13 @@ async function loadBeds(roomId) {
     const grid = document.getElementById('bkBedGrid');
     grid.innerHTML = '<div class="bk-bed-loading"><i class="fas fa-spinner fa-spin"></i> Loading beds…</div>';
     try {
-        const beds = DormState.getBeds(roomId);
+        const beds = await DormState.getBeds(roomId);
         renderBeds(beds);
     } catch (e) {
         grid.innerHTML = `<p class="bk-bed-error"><i class="fas fa-exclamation-circle"></i> Failed to load beds (${e.message}).</p>`;
     }
 }
+
 
 function renderBeds(beds) {
     const grid = document.getElementById('bkBedGrid');
@@ -422,6 +423,19 @@ function goToReceipt() {
     const isGcash = _payMethod === 'GCash Online';
     document.getElementById('bkReceiptGcash').style.display = isGcash ? '' : 'none';
     document.getElementById('bkReceiptCash').style.display  = isGcash ? 'none' : '';
+
+    // Populate settings from DormState (already resolved by the time user reaches this step)
+    const s = DormState.data.settings;
+    const priceStr = '₱' + Number(s.bed_price).toLocaleString();
+    const gcashNum  = document.getElementById('bkGcashNumber');
+    const gcashName = document.getElementById('bkGcashName');
+    const gcashPrc  = document.getElementById('bkGcashPrice');
+    const cashPrc   = document.getElementById('bkCashPrice');
+    if (gcashNum)  gcashNum.textContent  = s.gcash_number;
+    if (gcashName) gcashName.textContent = s.site_name;
+    if (gcashPrc)  gcashPrc.textContent  = priceStr;
+    if (cashPrc)   cashPrc.textContent   = priceStr;
+
     showPanel('bkStepReceipt');
     setStepActive(3);
 }
@@ -506,7 +520,7 @@ function goToConfirm() {
         ['Guardian Contact',document.getElementById('bkGuardianContact').value.trim()],
         ['Payment Method',  _payMethod],
         ['Receipt',         _receiptFile ? `✅ ${_receiptFile.name}` : '— (Cash, no receipt)'],
-        ['Monthly Rent',    `₱${DormState.data.settings.bed_price.toLocaleString()}.00`],
+        ['Monthly Rent',    `₱${Number(DormState.data.settings.bed_price).toLocaleString()}.00`],
     ];
 
     document.getElementById('bkConfirmCard').innerHTML = rows.map(([k,v]) => `
@@ -528,35 +542,37 @@ async function submitBooking() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
 
     const bookingData = {
-        bed_id: _selectedBedId,
-        room_id: _roomId,
-        full_name: document.getElementById('bkFullName').value.trim(),
-        category: document.getElementById('bkCategory').value,
-        school_name: document.getElementById('bkSchool').value.trim(),
-        contact_number: document.getElementById('bkContact').value.trim(),
-        guardian_name: document.getElementById('bkGuardian').value.trim(),
+        bed_id:           _selectedBedId,
+        room_id:          _roomId,
+        full_name:        document.getElementById('bkFullName').value.trim(),
+        category:         document.getElementById('bkCategory').value,
+        school_name:      document.getElementById('bkSchool').value.trim(),
+        contact_number:   document.getElementById('bkContact').value.trim(),
+        guardian_name:    document.getElementById('bkGuardian').value.trim(),
         guardian_contact: document.getElementById('bkGuardianContact').value.trim(),
-        payment_method: _payMethod,
-        receipt_image: _receiptData,
-        booking_ref: 'BK-' + Math.random().toString(36).substr(2, 6).toUpperCase()
+        payment_method:   _payMethod,
+        booking_ref:      'BK-' + Math.random().toString(36).substr(2, 6).toUpperCase(),
+        // Attach the actual File object so DormState.addBooking() can append it
+        _receiptFile:     _receiptFile
     };
 
     try {
-        const result = DormState.addBooking(bookingData);
-        if (result) {
+        const result = await DormState.addBooking(bookingData);
+        if (result && result.success) {
             document.getElementById('bkRefCode').textContent = result.booking_ref;
             showPanel('bkStepSuccess');
-            
+
             // Refresh main page view if functions exist
             if (typeof updateBadges === 'function') updateBadges();
-            if (typeof loadRooms === 'function') loadRooms(_floorNo);
+            if (typeof loadRooms   === 'function') loadRooms(_floorNo);
         } else {
-            alert('Submission failed. Please try again.');
+            const msg = (result && result.message) ? result.message : 'Submission failed. Please try again.';
+            alert(msg);
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-check"></i> Confirm Booking';
         }
     } catch (e) {
-        alert(`Error: ${e.message}`);
+        alert(`Network error: ${e.message}`);
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Confirm Booking';
     }

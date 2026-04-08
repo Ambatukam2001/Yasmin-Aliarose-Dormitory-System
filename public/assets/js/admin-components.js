@@ -1,5 +1,6 @@
 /**
  * Admin Shared Components for Static Build
+ * Settings are read from DormState (API-backed with defaults).
  */
 const AdminComponents = {
     renderSidebar(activeRoute = 'dashboard') {
@@ -53,6 +54,12 @@ const AdminComponents = {
         `;
 
         document.body.prepend(sidebar);
+
+        // Update sidebar site name once API settings arrive
+        document.addEventListener('dormstate:ready', () => {
+            const nameEl = sidebar.querySelector('.sidebar-logo span');
+            if (nameEl) nameEl.textContent = DormState.data.settings.site_name.split(' ')[0] + ' Admin';
+        });
     },
 
     renderMobileHeader(title) {
@@ -93,18 +100,13 @@ const AdminComponents = {
 
     logout() {
         if (confirm('Sign out of admin portal?')) {
-            localStorage.removeItem('dorm_admin_logged_in');
-            localStorage.removeItem('dorm_admin_user');
-            window.location.href = '../login.html';
+            window.location.href = '../api/auth_api.php?action=logout';
         }
     },
 
     checkAuth() {
-        if (localStorage.getItem('dorm_admin_logged_in') !== 'true') {
-            const isLoginPage = window.location.pathname.includes('login.html');
-            if (!isLoginPage) window.location.href = '../login.html';
-        }
-        // Apply theme
+        // Auth is handled server-side via PHP sessions.
+        // Apply theme only.
         if (localStorage.getItem('theme') === 'dark') {
             document.body.classList.add('dark-theme');
         }
