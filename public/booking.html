@@ -66,23 +66,32 @@
         loadRooms(floor);
     }
 
-    function loadRooms(floor) {
-        const rooms = DormState.getRooms(floor);
-        renderRooms(rooms, floor);
+    async function loadRooms(floor) {
+        const grid = document.getElementById('roomsGrid');
+        grid.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem;"></i></div>';
+        try {
+            const rooms = await DormState.getRooms(floor);
+            renderRooms(rooms, floor);
+        } catch (e) {
+            grid.innerHTML = '<div style="text-align:center;padding:3rem;color:#ef4444;">Failed to load rooms. Please refresh.</div>';
+        }
     }
 
     function renderRooms(rooms, floor) {
         const grid = document.getElementById('roomsGrid');
+        if (!rooms || !rooms.length) {
+            grid.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8;">No rooms found on this floor.</div>';
+            return;
+        }
         grid.innerHTML = rooms.map(r => {
-            const beds = DormState.getBeds(r.id);
-            const occ = beds.filter(b => b.status === 'Occupied').length;
-            const res = beds.filter(b => b.status === 'Reserved').length;
-            const total = beds.length;
-            const free = total - occ - res;
-            const isFull = free <= 0;
-            const occPct = total > 0 ? Math.round((occ / total) * 100) : 0;
-            const resPct = total > 0 ? Math.round((res / total) * 100) : 0;
-            const barClr = isFull ? '#ef4444' : (occPct >= 70 ? '#f59e0b' : '#10b981');
+            const total   = r.total_beds     || 0;
+            const occ     = r.occupied_count || 0;
+            const res     = r.reserved_count || 0;
+            const free    = total - occ - res;
+            const isFull  = free <= 0;
+            const occPct  = total > 0 ? Math.round((occ / total) * 100) : 0;
+            const resPct  = total > 0 ? Math.round((res / total) * 100) : 0;
+            const barClr  = isFull ? '#ef4444' : (occPct >= 70 ? '#f59e0b' : '#10b981');
 
             return `
             <div class="room-card ${isFull ? 'room-card--full' : ''}" 
@@ -121,19 +130,28 @@
         });
     }
 
-    function updateBadges() {
-        [2,3,4].forEach(f => {
-            const rooms = DormState.getRooms(f);
-            let total = 0, occ = 0;
-            rooms.forEach(r => {
-                const beds = DormState.getBeds(r.id);
-                total += beds.length;
-                occ += beds.filter(b => b.status === 'Occupied').length;
-            });
-            const free = total - occ;
-            document.getElementById(`badge-${f}`).innerText = free > 0 ? `${free} free` : 'FULL';
-            document.getElementById(`badge-${f}`).className = `ft-badge ${free <= 0 ? 'ft-badge--full' : ''}`;
-        });
+    async function updateBadges() {
+        try {
+            const stats = await DormState.getStats();
+            // Per-floor badge: fetch rooms for each floor to get per-floor free count
+            for (const f of [2, 3, 4]) {
+                const rooms = await DormState.getRooms(f);
+                let total = 0, occ = 0, res = 0;
+                rooms.forEach(r => {
+                    total += r.total_beds     || 0;
+                    occ   += r.occupied_count || 0;
+                    res   += r.reserved_count || 0;
+                });
+                const free = total - occ - res;
+                const badge = document.getElementById(`badge-${f}`);
+                if (badge) {
+                    badge.innerText   = free > 0 ? `${free} free` : 'FULL';
+                    badge.className   = `ft-badge ${free <= 0 ? 'ft-badge--full' : ''}`;
+                }
+            }
+        } catch (e) {
+            console.warn('updateBadges failed:', e);
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

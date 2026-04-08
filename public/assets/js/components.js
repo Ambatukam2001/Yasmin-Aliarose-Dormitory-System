@@ -1,11 +1,15 @@
 /**
  * COMPONENTS.JS - Replaces PHP Includes (Header/Footer)
+ * Settings are fetched from the API via DormState; defaults are used
+ * immediately and updated once the API responds.
  */
 
 const Components = {
     renderHeader(pageTitle = "") {
+        // Use whatever settings are cached (defaults or API-loaded)
         const settings = DormState.data.settings;
         const header = document.createElement('header');
+        header.id = 'siteHeader';
         header.innerHTML = `
             <div class="container">
                 <a href="index.html" class="logo">
@@ -47,8 +51,14 @@ const Components = {
             </div>`;
         document.body.prepend(header);
         
-        // Update Title
+        // Set title with current (possibly default) site name
         if (pageTitle) document.title = `${pageTitle} | ${settings.site_name}`;
+
+        // Update title again once API settings arrive
+        document.addEventListener('dormstate:ready', () => {
+            const s = DormState.data.settings;
+            if (pageTitle) document.title = `${pageTitle} | ${s.site_name}`;
+        });
         
         // Finalize switch state
         setTimeout(() => {
@@ -61,10 +71,12 @@ const Components = {
     renderFooter() {
         const settings = DormState.data.settings;
         const footer = document.createElement('footer');
+        footer.id = 'siteFooter';
         footer.style.cssText = "background:#0f172a;color:#f8fafc;padding:4rem 0 2rem;font-family:'Inter',system-ui,sans-serif;";
-        footer.innerHTML = `
+
+        const buildFooterHTML = (s) => `
             <div style="width:100%;max-width:1200px;margin:0 auto;padding:0 1.5rem;text-align:center;">
-                <h3 style="font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;color:#34d399;margin-bottom:0.75rem;">${settings.site_name}</h3>
+                <h3 style="font-family:'Outfit',sans-serif;font-size:1.5rem;font-weight:700;color:#34d399;margin-bottom:0.75rem;">${s.site_name}</h3>
                 <p style="color:#94a3b8;font-size:0.95rem;margin-bottom:2rem;">Premium and affordable bedspacer accommodations in the heart of the city.</p>
                 <div style="display:flex;justify-content:center;gap:2.5rem;flex-wrap:wrap;margin-bottom:2.5rem;">
                     <a href="index.html#overview" class="f-link">Overview</a>
@@ -73,10 +85,17 @@ const Components = {
                     <a href="login.html"         class="f-link">Admin Login</a>
                 </div>
                 <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:1.5rem;font-size:0.85rem;color:#64748b;">
-                    &copy; ${new Date().getFullYear()} ${settings.site_name}. All Rights Reserved.
+                    &copy; ${new Date().getFullYear()} ${s.site_name}. All Rights Reserved.
                 </div>
             </div>`;
+
+        footer.innerHTML = buildFooterHTML(settings);
         document.body.appendChild(footer);
+
+        // Re-render footer once API settings arrive (updates site name)
+        document.addEventListener('dormstate:ready', () => {
+            footer.innerHTML = buildFooterHTML(DormState.data.settings);
+        });
         
         // Inject footer styles
         const style = document.createElement('style');
