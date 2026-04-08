@@ -34,7 +34,7 @@ if ($db_url) {
     $dbname = ltrim($dbopts['path'], '/');
     $port = $dbopts['port'] ?? 5432;
 } else {
-    $host = getenv('DB_HOST') ?: 'db.dormitory_db.supabase.co'; // Placeholder
+    $host = getenv('DB_HOST') ?: 'db.zafdsyvthslobaalkwam.supabase.co'; // Placeholder
     $user = getenv('DB_USER') ?: 'postgres';
     $pass = getenv('DB_PASS') ?: 'gumamaadelyasin2001';
     $dbname = getenv('DB_NAME') ?: 'postgres';
