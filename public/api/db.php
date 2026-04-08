@@ -24,7 +24,7 @@ loadEnv(__DIR__ . '/../../config/config.env');
 // ✅ USE RAILWAY VARIABLES
 $host = getenv('MYSQLHOST') ?: 'mysql.railway.internal';
 $username = getenv('MYSQLUSER') ?: 'root';
-$password = getenv('MYSQLPASSWORD') ?: '';
+$password = getenv('MYSQLPASSWORD') ?: 'SsUBVFdBxVezJIAfBRFTtxRipBMKLKWy';
 $dbname = getenv('MYSQLDATABASE') ?: 'railway';
 $port = getenv('MYSQLPORT') ?: 3306;
 
