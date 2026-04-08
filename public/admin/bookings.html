@@ -123,35 +123,34 @@
 
         let currentFilter = 'all';
 
-        function renderBookings() {
-            let bookings;
-            if (currentFilter === 'all') bookings = DormState.getBookings();
-            else if (currentFilter === 'Overdue') bookings = DormState.getOverdueBookings();
-            else if (currentFilter === 'archive') bookings = DormState.data.deletedBookings;
-            else bookings = DormState.getBookings().filter(b => b.payment_status === currentFilter || b.booking_status === currentFilter);
-            
-            // Stats sync
-            const stats = DormState.getStats();
-            document.getElementById('overdueCount').textContent = stats.overdue;
-            document.getElementById('trashCount').textContent = DormState.data.deletedBookings.length;
-            
-            // Show restore helper only in archive
+        async function renderBookings() {
+            const tbody = document.getElementById('bookingsBody');
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">Loading...</td></tr>`;
+
+            let bookings = [];
+            try {
+                const res = await fetch(`/api/admin_bookings?filter=${encodeURIComponent(currentFilter)}`);
+                const data = await res.json();
+                if (data.success && Array.isArray(data.bookings)) {
+                    bookings = data.bookings;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-danger">Failed to load bookings.</td></tr>`;
+                return;
+            }
+
             document.getElementById('trashTip').style.display = (currentFilter === 'archive') ? 'block' : 'none';
 
-            const tbody = document.getElementById('bookingsBody');
             if (bookings.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">No ${currentFilter === 'archive' ? 'archived' : 'active'} records found.</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = bookings.reverse().map(b => {
-                const bed = DormState.getBed(b.bed_id);
-                const room = DormState.data.rooms.find(r => r.id == (bed ? bed.room_id : null));
                 const isPending = b.payment_status === 'Pending';
                 const isActive = b.booking_status === 'Active' && b.payment_status === 'Confirmed';
                 const isArchived = currentFilter === 'archive';
-                const hasReceipt = b.receipt_image && b.receipt_image.length > 0;
-                
+                const hasReceipt = !!b.receipt_path;
                 const now = new Date();
                 const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
                 const isOverdue = b.booking_status === 'Active' && b.payment_status === 'Confirmed' && b.due_date && b.due_date < today;
@@ -164,7 +163,7 @@
                     </td>
                     <td>
                         <div class="text-xs uppercase tracking-wider font-bold color-primary mb-1">${b.booking_ref}</div>
-                        <div class="text-xs font-medium">Floor ${room?room.floor_no:'?'} &middot; Rm ${room?room.room_no:'?'} &middot; ${bed ? (bed.bed_no == 1 ? 'Lower Deck' : bed.bed_no == 2 ? 'Upper Deck' : 'Bed ' + bed.bed_no) : 'Bed ?'}</div>
+                        <div class="text-xs font-medium">Floor ${b.floor_no || '?'} &middot; Rm ${b.room_no || '?'} &middot; Bed ${b.bed_id || '?'}</div>
                     </td>
                     <td>
                         <div style="display:flex; align-items:center; gap:5px">
@@ -180,15 +179,15 @@
                     <td class="text-right">
                         <div class="actions-flex">
                             ${isArchived ? `
-                                <button onclick="handleRestore(${b.id})" class="btn-action btn-restore" title="Restore to Active List">
+                                <button onclick="handleRestore(${b.id})" class="btn-action btn-restore" title="Restore to Active List" disabled>
                                     <i class="fas fa-undo"></i> Restore
                                 </button>
-                                <button onclick="handlePermanentDelete(${b.id})" class="btn-action btn-danger" title="Permanently Delete">
+                                <button onclick="handlePermanentDelete(${b.id})" class="btn-action btn-danger" title="Permanently Delete" disabled>
                                     <i class="fas fa-times"></i>
                                 </button>
                             ` : `
                                 ${hasReceipt ? `
-                                    <button onclick="openReceipt('${b.id}')" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
+                                    <button onclick="openReceipt('${b.id}', '${b.receipt_path || ''}')" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
                                         <i class="fas fa-image"></i> Receipt
                                     </button>
                                 ` : ''}
@@ -231,38 +230,55 @@
 
         // --- Actions ---
 
-        function handleAccept(id) { DormState.acceptBooking(id); renderBookings(); }
-        function handleDecline(id) { if(confirm('Decline and cancel this booking?')) { DormState.declineBooking(id); renderBookings(); } }
-        function handleCheckout(id) { if(confirm('Mark resident as completed and free the bed?')) { DormState.checkoutBooking(id); renderBookings(); } }
-        function handleDelete(id) { if(confirm('Move this record to Archive? You can restore it later.')) { DormState.deleteBooking(id); renderBookings(); } }
+        async function handleAccept(id) {
+            if (!confirm('Confirm this reservation?')) return;
+            await fetch('/api/admin_bookings?action=accept', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            renderBookings();
+        }
+
+        async function handleDecline(id) {
+            if (!confirm('Decline and cancel this booking?')) return;
+            await fetch('/api/admin_bookings?action=decline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            renderBookings();
+        }
+
+        async function handleCheckout(id) {
+            if (!confirm('Mark resident as completed and free the bed?')) return;
+            await fetch('/api/admin_bookings?action=checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id })
+            });
+            renderBookings();
+        }
+
+        function handleDelete(id) {
+            // No hard delete API yet; keep as no-op to avoid accidental data loss.
+            alert('Archive is not enabled for Supabase-backed bookings yet.');
+        }
         
         function handleRestore(id) {
-            if(confirm('Restore this record to Active list?')) {
-                if(DormState.restoreBooking(id)) {
-                    renderBookings();
-                } else {
-                    alert('Could not restore. The assigned bed might be taken.');
-                }
-            }
+            alert('Restore is not enabled for Supabase-backed bookings yet.');
         }
 
         function handlePermanentDelete(id) {
-             if(confirm('PERMANENTLY delete this archive record? This cannot be undone.')) {
-                 DormState.data.deletedBookings = DormState.data.deletedBookings.filter(x => x.id != id);
-                 DormState.save();
-                 renderBookings();
-             }
+            alert('Permanent delete is not enabled for Supabase-backed bookings yet.');
         }
 
-        function openReceipt(id) {
-            const b = (currentFilter === 'archive') 
-                ? DormState.data.deletedBookings.find(x => x.id == id)
-                : DormState.getBookings().find(x => x.id == id);
+        function openReceipt(id, receiptPath) {
             const img = document.getElementById('receiptImg');
             const msg = document.getElementById('noReceiptMsg');
             
-            if (b && b.receipt_image) {
-                img.src = b.receipt_image;
+            if (receiptPath) {
+                img.src = receiptPath;
                 img.style.display = 'block';
                 msg.style.display = 'none';
             } else {
@@ -273,10 +289,9 @@
         }
 
         function openPayment(id, name) {
-            const b = DormState.getBookings().find(x => x.id == id);
             document.getElementById('pay_id').value = id;
             document.getElementById('pay_name').textContent = name;
-            document.getElementById('pay_amount').value = b?.monthly_rent || 1600;
+            document.getElementById('pay_amount').value = 1600;
             
             let d = new Date();
             d.setMonth(d.getMonth() + 1);
@@ -285,12 +300,16 @@
             document.getElementById('paymentModal').style.display = 'flex';
         }
 
-        function handlePaymentSubmit(e) {
+        async function handlePaymentSubmit(e) {
             e.preventDefault();
             const id = document.getElementById('pay_id').value;
             const amt = document.getElementById('pay_amount').value;
             const due = document.getElementById('pay_due').value;
-            DormState.processPayment(id, amt, 'Manual (Admin)', due);
+            await fetch('/api/admin_bookings?action=payment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, amount: amt, next_due: due, method: 'Manual (Admin)' })
+            });
             closeModal('paymentModal');
             renderBookings();
         }

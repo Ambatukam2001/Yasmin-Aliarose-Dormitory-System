@@ -13,7 +13,7 @@ async function openHistory(bookingId, name) {
     if (content) content.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     
     try {
-        const res = await fetch('../api/get_payments.php?booking_id=' + bookingId);
+        const res = await fetch('/api/admin_payments?booking_id=' + bookingId);
         const payments = await res.json();
         
         if (payments.length === 0) {

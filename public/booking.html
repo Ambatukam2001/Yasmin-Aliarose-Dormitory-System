@@ -74,7 +74,7 @@
         </div>`;
 
         try {
-            const res = await fetch(`api/room_api.php?action=floor_rooms&floor_no=${floor}`);
+            const res = await fetch(`/api/room_api?action=floor_rooms&floor_no=${floor}`);
             const rooms = await res.json();
             renderRooms(rooms, floor);
         } catch (e) {
@@ -146,7 +146,7 @@
         const floors = [2, 3, 4];
         for (const f of floors) {
             try {
-                const res = await fetch(`api/room_api.php?action=floor_rooms&floor_no=${f}`);
+                const res = await fetch(`/api/room_api?action=floor_rooms&floor_no=${f}`);
                 const rooms = await res.json();
 
                 const totalBeds = (rooms || []).reduce((sum, r) => sum + (parseInt(r.total_beds) || 0), 0);

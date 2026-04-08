@@ -335,7 +335,7 @@ async function loadBeds(roomId) {
     const grid = document.getElementById('bkBedGrid');
     grid.innerHTML = '<div class="bk-bed-loading"><i class="fas fa-spinner fa-spin"></i> Loading beds…</div>';
     try {
-        const res = await fetch(`api/room_api.php?action=room_beds&room_id=${roomId}`);
+        const res = await fetch(`/api/room_api?action=room_beds&room_id=${roomId}`);
         const beds = await res.json();
         renderBeds(beds);
     } catch (e) {
@@ -560,7 +560,7 @@ async function submitBooking() {
     }
 
     try {
-        const response = await fetch('api/submit_booking.php', {
+        const response = await fetch('/api/submit_booking', {
             method: 'POST',
             body: formData
         });
