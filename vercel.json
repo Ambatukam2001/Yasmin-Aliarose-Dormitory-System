@@ -7,6 +7,7 @@
     { "source": "/login", "destination": "/public/login.html" },
     { "source": "/admin", "destination": "/public/admin/dashboard.html" },
     { "source": "/admin/(.*)", "destination": "/public/admin/$1" },
+    { "source": "/api/(.*)", "destination": "/public/api/$1" },
     { "source": "/assets/(.*)", "destination": "/public/assets/$1" },
     { "source": "/uploads/(.*)", "destination": "/public/uploads/$1" }
   ],

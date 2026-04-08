@@ -12,6 +12,23 @@ const BK_BASE = (() => {
     return window.location.origin + path;
 })();
 
+// Settings can come from either:
+// - window.DormConfig (PHP-rendered pages like booking.php), or
+// - window.DormState.data.settings (static pages like booking.html).
+// We resolve them once to avoid ReferenceError during the modal injection.
+const BK_SETTINGS = (() => {
+    const cfgFromDormConfig = window.DormConfig || null;
+    const cfgFromDormState  = window.DormState?.data?.settings || null;
+    const cfg = cfgFromDormConfig || cfgFromDormState || {};
+
+    return {
+        site_name: cfg.site_name ?? '',
+        bed_price: cfg.bed_price ?? 0,
+        gcash_number: cfg.gcash_number ?? ''
+    };
+})();
+const BK_BED_PRICE = Number(BK_SETTINGS.bed_price) || 0;
+
 /* ═══════════════════════════════════════════════════════
    MODAL INJECTION
    ═══════════════════════════════════════════════════════ */
@@ -138,9 +155,9 @@ const BK_BASE = (() => {
                     <div class="bk-gcash-info">
                         <div class="bk-gcash-icon"><i class="fas fa-mobile-alt"></i></div>
                         <div>
-                            <p class="bk-gcash-label">Send ₱${parseInt(DormConfig.bed_price).toLocaleString()} to</p>
-                            <p class="bk-gcash-number">${DormConfig.gcash_number}</p>
-                            <p class="bk-gcash-name">${DormConfig.site_name}</p>
+                            <p class="bk-gcash-label">Send ₱${BK_BED_PRICE.toLocaleString()} to</p>
+                            <p class="bk-gcash-number">${BK_SETTINGS.gcash_number}</p>
+                            <p class="bk-gcash-name">${BK_SETTINGS.site_name}</p>
                         </div>
                     </div>
                     <div class="bk-dropzone" id="bkDropzone" onclick="document.getElementById('bkReceiptFile').click()">
@@ -162,7 +179,7 @@ const BK_BASE = (() => {
                         <i class="fas fa-info-circle"></i>
                         <div>
                             <strong>Cash Payment</strong>
-                            <p>No receipt needed. Please pay ₱${DormState.data.settings.bed_price.toLocaleString()}.00 upon check-in. Your booking will be confirmed by the admin.</p>
+                            <p>No receipt needed. Please pay ₱${BK_BED_PRICE.toLocaleString()}.00 upon check-in. Your booking will be confirmed by the admin.</p>
                         </div>
                     </div>
                     <div class="bk-map-preview" style="border-radius:1rem; overflow:hidden; border:1.5px solid #e2e8f0; margin-top:1rem; height:200px;">
@@ -507,7 +524,7 @@ function goToConfirm() {
         ['Guardian Contact',document.getElementById('bkGuardianContact').value.trim()],
         ['Payment Method',  _payMethod],
         ['Receipt',         _receiptFile ? `✅ ${_receiptFile.name}` : '— (Cash, no receipt)'],
-        ['Monthly Rent',    `₱${parseInt(DormConfig.bed_price).toLocaleString()}.00`],
+        ['Monthly Rent',    `₱${BK_BED_PRICE.toLocaleString()}.00`],
     ];
 
     document.getElementById('bkConfirmCard').innerHTML = rows.map(([k,v]) => `

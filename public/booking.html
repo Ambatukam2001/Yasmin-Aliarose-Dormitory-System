@@ -66,20 +66,41 @@
         loadRooms(floor);
     }
 
-    function loadRooms(floor) {
-        const rooms = DormState.getRooms(floor);
-        renderRooms(rooms, floor);
+    async function loadRooms(floor) {
+        const grid = document.getElementById('roomsGrid');
+        grid.innerHTML = `<div style="text-align:center;padding:2rem;color:#94a3b8;font-family:'Inter',sans-serif;font-weight:600;">
+            <i class="fas fa-spinner fa-spin" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
+            Loading rooms…
+        </div>`;
+
+        try {
+            const res = await fetch(`api/room_api.php?action=floor_rooms&floor_no=${floor}`);
+            const rooms = await res.json();
+            renderRooms(rooms, floor);
+        } catch (e) {
+            grid.innerHTML = `<div style="text-align:center;padding:2rem;color:#64748b;font-family:'Inter',sans-serif;font-weight:600;">
+                <i class="fas fa-exclamation-circle" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
+                Failed to load rooms. Please refresh.
+            </div>`;
+        }
     }
 
     function renderRooms(rooms, floor) {
         const grid = document.getElementById('roomsGrid');
+        if (!rooms || !rooms.length) {
+            grid.innerHTML = `<div style="text-align:center;padding:2rem;color:#64748b;font-family:'Inter',sans-serif;font-weight:600;">
+                <i class="fas fa-door-closed" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
+                No rooms found on this floor yet.
+            </div>`;
+            return;
+        }
+
         grid.innerHTML = rooms.map(r => {
-            const beds = DormState.getBeds(r.id);
-            const occ = beds.filter(b => b.status === 'Occupied').length;
-            const res = beds.filter(b => b.status === 'Reserved').length;
-            const total = beds.length;
-            const free = total - occ - res;
-            const isFull = free <= 0;
+            const total = parseInt(r.total_beds) || 0;
+            const occ = parseInt(r.occupied_count) || 0;
+            const res = parseInt(r.reserved_count) || 0;
+            const free = Math.max(0, total - occ - res);
+            const isFull = r.status === 'Full' || (total > 0 && free <= 0);
             const occPct = total > 0 ? Math.round((occ / total) * 100) : 0;
             const resPct = total > 0 ? Math.round((res / total) * 100) : 0;
             const barClr = isFull ? '#ef4444' : (occPct >= 70 ? '#f59e0b' : '#10b981');
@@ -121,19 +142,31 @@
         });
     }
 
-    function updateBadges() {
-        [2,3,4].forEach(f => {
-            const rooms = DormState.getRooms(f);
-            let total = 0, occ = 0;
-            rooms.forEach(r => {
-                const beds = DormState.getBeds(r.id);
-                total += beds.length;
-                occ += beds.filter(b => b.status === 'Occupied').length;
-            });
-            const free = total - occ;
-            document.getElementById(`badge-${f}`).innerText = free > 0 ? `${free} free` : 'FULL';
-            document.getElementById(`badge-${f}`).className = `ft-badge ${free <= 0 ? 'ft-badge--full' : ''}`;
-        });
+    async function updateBadges() {
+        const floors = [2, 3, 4];
+        for (const f of floors) {
+            try {
+                const res = await fetch(`api/room_api.php?action=floor_rooms&floor_no=${f}`);
+                const rooms = await res.json();
+
+                const totalBeds = (rooms || []).reduce((sum, r) => sum + (parseInt(r.total_beds) || 0), 0);
+                const occupiedCount = (rooms || []).reduce((sum, r) => sum + (parseInt(r.occupied_count) || 0), 0);
+                const free = totalBeds - occupiedCount;
+
+                const badgeEl = document.getElementById(`badge-${f}`);
+                if (!badgeEl) continue;
+
+                const isFull = totalBeds > 0 && free <= 0;
+                badgeEl.innerText = totalBeds === 0 ? 'No rooms' : (isFull ? 'FULL' : `${free} free`);
+                badgeEl.className = `ft-badge ${isFull ? 'ft-badge--full' : ''}`;
+            } catch (e) {
+                const badgeEl = document.getElementById(`badge-${f}`);
+                if (badgeEl) {
+                    badgeEl.innerText = 'Error';
+                    badgeEl.className = 'ft-badge';
+                }
+            }
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -142,7 +175,7 @@
         }
         Components.renderHeader("Bookings");
         Components.renderFooter();
-        loadRooms(2);
+        loadRooms(activeFloor);
         updateBadges();
     });
     
