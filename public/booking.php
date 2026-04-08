@@ -77,6 +77,14 @@ if ($stats_res) {
 </div>
 </main>
 
+<script>
+    // Global configuration from PHP to JS
+    window.DormConfig = {
+        site_name: <?php echo json_encode($site_name); ?>,
+        bed_price: <?php echo json_encode($bed_price); ?>,
+        gcash_number: <?php echo json_encode($gcash_number); ?>
+    };
+</script>
 <script src="assets/js/booking.js"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════

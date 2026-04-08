@@ -138,9 +138,9 @@ const BK_BASE = (() => {
                     <div class="bk-gcash-info">
                         <div class="bk-gcash-icon"><i class="fas fa-mobile-alt"></i></div>
                         <div>
-                            <p class="bk-gcash-label">Send ₱${DormState.data.settings.bed_price.toLocaleString()} to</p>
-                            <p class="bk-gcash-number">${DormState.data.settings.gcash_number}</p>
-                            <p class="bk-gcash-name">${DormState.data.settings.site_name}</p>
+                            <p class="bk-gcash-label">Send ₱${parseInt(DormConfig.bed_price).toLocaleString()} to</p>
+                            <p class="bk-gcash-number">${DormConfig.gcash_number}</p>
+                            <p class="bk-gcash-name">${DormConfig.site_name}</p>
                         </div>
                     </div>
                     <div class="bk-dropzone" id="bkDropzone" onclick="document.getElementById('bkReceiptFile').click()">
@@ -318,7 +318,8 @@ async function loadBeds(roomId) {
     const grid = document.getElementById('bkBedGrid');
     grid.innerHTML = '<div class="bk-bed-loading"><i class="fas fa-spinner fa-spin"></i> Loading beds…</div>';
     try {
-        const beds = DormState.getBeds(roomId);
+        const res = await fetch(`api/room_api.php?action=room_beds&room_id=${roomId}`);
+        const beds = await res.json();
         renderBeds(beds);
     } catch (e) {
         grid.innerHTML = `<p class="bk-bed-error"><i class="fas fa-exclamation-circle"></i> Failed to load beds (${e.message}).</p>`;
@@ -506,7 +507,7 @@ function goToConfirm() {
         ['Guardian Contact',document.getElementById('bkGuardianContact').value.trim()],
         ['Payment Method',  _payMethod],
         ['Receipt',         _receiptFile ? `✅ ${_receiptFile.name}` : '— (Cash, no receipt)'],
-        ['Monthly Rent',    `₱${DormState.data.settings.bed_price.toLocaleString()}.00`],
+        ['Monthly Rent',    `₱${parseInt(DormConfig.bed_price).toLocaleString()}.00`],
     ];
 
     document.getElementById('bkConfirmCard').innerHTML = rows.map(([k,v]) => `
@@ -527,23 +528,28 @@ async function submitBooking() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
 
-    const bookingData = {
-        bed_id: _selectedBedId,
-        room_id: _roomId,
-        full_name: document.getElementById('bkFullName').value.trim(),
-        category: document.getElementById('bkCategory').value,
-        school_name: document.getElementById('bkSchool').value.trim(),
-        contact_number: document.getElementById('bkContact').value.trim(),
-        guardian_name: document.getElementById('bkGuardian').value.trim(),
-        guardian_contact: document.getElementById('bkGuardianContact').value.trim(),
-        payment_method: _payMethod,
-        receipt_image: _receiptData,
-        booking_ref: 'BK-' + Math.random().toString(36).substr(2, 6).toUpperCase()
-    };
+    const formData = new FormData();
+    formData.append('bed_id', _selectedBedId);
+    formData.append('full_name', document.getElementById('bkFullName').value.trim());
+    formData.append('category', document.getElementById('bkCategory').value);
+    formData.append('school_name', document.getElementById('bkSchool').value.trim());
+    formData.append('contact_number', document.getElementById('bkContact').value.trim());
+    formData.append('guardian_name', document.getElementById('bkGuardian').value.trim());
+    formData.append('guardian_contact', document.getElementById('bkGuardianContact').value.trim());
+    formData.append('payment_method', _payMethod);
+    
+    if (_receiptFile) {
+        formData.append('receipt', _receiptFile);
+    }
 
     try {
-        const result = DormState.addBooking(bookingData);
-        if (result) {
+        const response = await fetch('api/submit_booking.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.success) {
             document.getElementById('bkRefCode').textContent = result.booking_ref;
             showPanel('bkStepSuccess');
             
@@ -551,7 +557,7 @@ async function submitBooking() {
             if (typeof updateBadges === 'function') updateBadges();
             if (typeof loadRooms === 'function') loadRooms(_floorNo);
         } else {
-            alert('Submission failed. Please try again.');
+            alert(result.message || 'Submission failed. Please try again.');
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-check"></i> Confirm Booking';
         }
