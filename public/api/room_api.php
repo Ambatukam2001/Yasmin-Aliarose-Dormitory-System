@@ -11,9 +11,8 @@ $action = $_GET['action'] ?? '';
 if ($action === 'all') {
     $floor_no = intval($_GET['floor_no'] ?? 2);
     $stmt = $conn->prepare("SELECT * FROM rooms WHERE floor_no = ?");
-    $stmt->bind_param("i", $floor_no);
-    $stmt->execute();
-    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    $stmt->execute([$floor_no]);
+    echo json_encode($stmt->fetchAll());
     exit;
 }
 
@@ -28,18 +27,16 @@ if ($action === 'floor_rooms') {
         WHERE r.floor_no = ?
     ";
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $floor_no);
-    $stmt->execute();
-    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    $stmt->execute([$floor_no]);
+    echo json_encode($stmt->fetchAll());
     exit;
 }
 
 if ($action === 'beds') {
     $room_id = intval($_GET['room_id'] ?? 0);
     $stmt = $conn->prepare("SELECT * FROM beds WHERE room_id = ? ORDER BY bed_no ASC");
-    $stmt->bind_param("i", $room_id);
-    $stmt->execute();
-    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    $stmt->execute([$room_id]);
+    echo json_encode($stmt->fetchAll());
     exit;
 }
 

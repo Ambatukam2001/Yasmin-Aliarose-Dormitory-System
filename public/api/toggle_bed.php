@@ -20,10 +20,8 @@ if (!$bed_id || !in_array($newStatus, ['Available', 'Reserved', 'Occupied'])) {
 
 // Get bed → room_id
 $stmt = $conn->prepare("SELECT room_id FROM beds WHERE id = ?");
-$stmt->bind_param("i", $bed_id);
-$stmt->execute();
-$bed = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$bed_id]);
+$bed = $stmt->fetch();
 
 if (!$bed) {
     echo json_encode(['success' => false, 'message' => 'Bed not found.']);
@@ -35,20 +33,16 @@ $room_id = (int)$bed['room_id'];
 // Update bed
 if ($newStatus === 'Occupied') {
     $stmt = $conn->prepare("UPDATE beds SET status = 'Occupied', reserved_at = NOW() WHERE id = ?");
-    $stmt->bind_param("i", $bed_id);
+    $stmt->execute([$bed_id]);
 } else {
     $stmt = $conn->prepare("UPDATE beds SET status = ?, reserved_at = NULL WHERE id = ?");
-    $stmt->bind_param("si", $newStatus, $bed_id);
+    $stmt->execute([$newStatus, $bed_id]);
 }
-$stmt->execute();
-$stmt->close();
 
 // Get updated reserved_at
 $stmt = $conn->prepare("SELECT reserved_at FROM beds WHERE id = ?");
-$stmt->bind_param("i", $bed_id);
-$stmt->execute();
-$row = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$bed_id]);
+$row = $stmt->fetch();
 
 $reserved_at = (!empty($row['reserved_at']) && $row['reserved_at'] !== '0000-00-00 00:00:00')
     ? date('M d, Y', strtotime($row['reserved_at']))
@@ -57,13 +51,11 @@ $reserved_at = (!empty($row['reserved_at']) && $row['reserved_at'] !== '0000-00-
 // Recalculate occupancy (only Occupied counts as "taken")
 $stmt = $conn->prepare("
     SELECT COUNT(*) AS total,
-           SUM(status = 'Occupied') AS occupied
+           SUM(CASE WHEN status = 'Occupied' THEN 1 ELSE 0 END) AS occupied
     FROM beds WHERE room_id = ?
 ");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$s = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$room_id]);
+$s = $stmt->fetch();
 
 $total     = (int)$s['total'];
 $occupied  = (int)$s['occupied'];
@@ -74,9 +66,7 @@ $is_full   = ($total > 0 && $vacancies <= 0);
 // Sync rooms.status  (rooms only has 'Available' | 'Full')
 $room_status = $is_full ? 'Full' : 'Available';
 $stmt = $conn->prepare("UPDATE rooms SET status = ? WHERE id = ?");
-$stmt->bind_param("si", $room_status, $room_id);
-$stmt->execute();
-$stmt->close();
+$stmt->execute([$room_status, $room_id]);
 
 echo json_encode([
     'success'      => true,

@@ -54,9 +54,8 @@ if (!in_array($payment_method, ['GCash Online', 'Cash In'])) {
 
 /* ── Confirm bed is still Available ────────────────────── */
 $check = $conn->prepare("SELECT id, status FROM beds WHERE id = ?");
-$check->bind_param("i", $bed_id);
-$check->execute();
-$bed = $check->get_result()->fetch_assoc();
+$check->execute([$bed_id]);
+$bed = $check->fetch();
 
 if (!$bed) {
     echo json_encode(['success' => false, 'message' => 'Bed not found.']);
@@ -116,13 +115,12 @@ if ($payment_method === 'GCash Online') {
 do {
     $booking_ref = 'BK-' . strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 8));
     $dup = $conn->prepare("SELECT id FROM bookings WHERE booking_ref = ?");
-    $dup->bind_param("s", $booking_ref);
-    $dup->execute();
-    $dup->store_result();
-} while ($dup->num_rows > 0);
+    $dup->execute([$booking_ref]);
+    $has_dup = $dup->fetch();
+} while ($has_dup);
 
 /* ── Transaction: insert booking + mark bed Reserved ─────── */
-$conn->begin_transaction();
+$conn->beginTransaction();
 
 try {
     // bookings has no room_id column — only bed_id
@@ -142,28 +140,24 @@ try {
              'Active', 'Pending', NOW())
     ");
 
-    $ins->bind_param(
-        "sissssssss",
+    if (!$ins->execute([
         $booking_ref, $bed_id,
         $full_name, $category, $school_name,
         $contact_number, $guardian_name, $guardian_contact,
         $payment_method, $receipt_path
-    );
-
-    if (!$ins->execute()) {
-        throw new Exception('Insert failed: ' . $ins->error);
+    ])) {
+        throw new Exception('Insert failed');
     }
 
     // Mark bed Reserved + set reserved_at timestamp
     $upd_bed = $conn->prepare("UPDATE beds SET status = 'Reserved', reserved_at = NOW() WHERE id = ?");
-    $upd_bed->bind_param("i", $bed_id);
-    $upd_bed->execute();
+    $upd_bed->execute([$bed_id]);
 
     $conn->commit();
     echo json_encode(['success' => true, 'booking_ref' => $booking_ref]);
 
 } catch (Exception $e) {
-    $conn->rollback();
+    $conn->rollBack();
     if ($receipt_path && file_exists(__DIR__ . '/../' . $receipt_path)) {
         unlink(__DIR__ . '/../' . $receipt_path);
     }

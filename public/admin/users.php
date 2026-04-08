@@ -7,7 +7,7 @@ require_admin_auth();
 require_once 'actions.php';
 
 $route = 'users'; // sidebar will need to handle this
-$users = $conn->query("SELECT * FROM bookings WHERE booking_status = 'Active' ORDER BY full_name ASC")->fetch_all(MYSQLI_ASSOC);
+$users = $conn->query("SELECT * FROM bookings WHERE booking_status = 'Active' ORDER BY full_name ASC")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">

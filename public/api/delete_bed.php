@@ -17,10 +17,8 @@ if (!$bed_id) {
 
 // Fetch bed
 $stmt = $conn->prepare("SELECT * FROM beds WHERE id = ?");
-$stmt->bind_param("i", $bed_id);
-$stmt->execute();
-$bed = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$bed_id]);
+$bed = $stmt->fetch();
 
 if (!$bed) {
     echo json_encode(['success' => false, 'message' => 'Bed not found.']);
@@ -38,10 +36,8 @@ $stmt = $conn->prepare("
     SELECT COUNT(*) AS cnt FROM bookings
     WHERE bed_id = ? AND booking_status = 'Active'
 ");
-$stmt->bind_param("i", $bed_id);
-$stmt->execute();
-$booking_check = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$bed_id]);
+$booking_check = $stmt->fetch();
 
 if ((int)$booking_check['cnt'] > 0) {
     echo json_encode(['success' => false, 'message' => 'This bed has an active booking. Cancel the booking first.']);
@@ -52,26 +48,20 @@ $room_id = (int)$bed['room_id'];
 
 // Delete bed (bookings.bed_id will SET NULL via FK)
 $stmt = $conn->prepare("DELETE FROM beds WHERE id = ?");
-$stmt->bind_param("i", $bed_id);
-$stmt->execute();
-$stmt->close();
+$stmt->execute([$bed_id]);
 
 // Decrease room capacity (floor at 0)
 $stmt = $conn->prepare("UPDATE rooms SET capacity = GREATEST(0, capacity - 1) WHERE id = ?");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$stmt->close();
+$stmt->execute([$room_id]);
 
 // Recalculate and sync room status
 $stmt = $conn->prepare("
     SELECT COUNT(*) AS total,
-           SUM(status = 'Occupied') AS occupied
+           SUM(CASE WHEN status = 'Occupied' THEN 1 ELSE 0 END) AS occupied
     FROM beds WHERE room_id = ?
 ");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$s = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$room_id]);
+$s = $stmt->fetch();
 
 $total     = (int)$s['total'];
 $occupied  = (int)$s['occupied'];
@@ -81,9 +71,7 @@ $is_full   = ($total > 0 && $vacancies <= 0);
 
 $room_status = $is_full ? 'Full' : 'Available';
 $stmt = $conn->prepare("UPDATE rooms SET status = ? WHERE id = ?");
-$stmt->bind_param("si", $room_status, $room_id);
-$stmt->execute();
-$stmt->close();
+$stmt->execute([$room_status, $room_id]);
 
 echo json_encode([
     'success'      => true,

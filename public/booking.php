@@ -14,7 +14,7 @@ $stats_res = $conn->query("
     GROUP BY r.floor_no
 ");
 if ($stats_res) {
-    while ($row = $stats_res->fetch_assoc()) {
+    while ($row = $stats_res->fetch()) {
         $floor_stats[$row['floor_no']] = [
             'total'    => (int)$row['total_beds'],
             'occupied' => (int)$row['occupied_count']
@@ -38,7 +38,7 @@ if ($stats_res) {
         $floors_query = $conn->query("SELECT DISTINCT floor_no FROM rooms ORDER BY floor_no ASC");
         $floors = [];
         if ($floors_query) {
-            while ($row = $floors_query->fetch_assoc()) $floors[] = (int)$row['floor_no'];
+            while ($row = $floors_query->fetch()) $floors[] = (int)$row['floor_no'];
         }
         if (empty($floors)) $floors = [2, 3, 4];
 

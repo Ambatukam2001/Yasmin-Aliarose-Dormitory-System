@@ -18,8 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['update_status'])) {
 }
 
 $bid            = (int) $_POST['id'];
-$booking_status = $conn->real_escape_string($_POST['booking_status'] ?? '');
-$payment_status = $conn->real_escape_string($_POST['payment_status'] ?? '');
+$booking_status = $_POST['booking_status'] ?? '';
+$payment_status = $_POST['payment_status'] ?? '';
 
 // Whitelist — reject anything unexpected
 if (!in_array($booking_status, ['Active', 'Completed', 'Cancelled'], true) ||
@@ -27,23 +27,27 @@ if (!in_array($booking_status, ['Active', 'Completed', 'Cancelled'], true) ||
     redirect_bookings($_current_filter, 'error');
 }
 
-$conn->begin_transaction();
+$conn->beginTransaction();
 try {
-    $conn->query("
+    $stmt = $conn->prepare("
         UPDATE bookings
-        SET booking_status = '$booking_status',
-            payment_status = '$payment_status'
-        WHERE id = $bid
+        SET booking_status = ?,
+            payment_status = ?
+        WHERE id = ?
     ");
+    $stmt->execute([$booking_status, $payment_status, $bid]);
 
     // Completed or Cancelled → free the bed
     if (in_array($booking_status, ['Completed', 'Cancelled'], true)) {
-        $row = $conn->query("SELECT bed_id FROM bookings WHERE id = $bid")->fetch_assoc();
+        $stmt = $conn->prepare("SELECT bed_id FROM bookings WHERE id = ?");
+        $stmt->execute([$bid]);
+        $row = $stmt->fetch();
         if (!empty($row['bed_id'])) {
-            $conn->query("
+            $stmt = $conn->prepare("
                 UPDATE beds SET status = 'Available', reserved_at = NULL
-                WHERE id = {$row['bed_id']}
+                WHERE id = ?
             ");
+            $stmt->execute([$row['bed_id']]);
         }
     }
 
@@ -51,7 +55,7 @@ try {
     if ($payment_status === 'Confirmed') {
         $conn->query("
             UPDATE bookings
-            SET due_date = DATE_ADD(NOW(), INTERVAL 1 MONTH)
+            SET due_date = NOW() + INTERVAL '1 month'
             WHERE id = $bid
               AND (due_date IS NULL OR due_date = '0000-00-00')
         ");
@@ -60,6 +64,6 @@ try {
     $conn->commit();
     redirect_bookings($_current_filter, 'status_updated');
 } catch (Exception $e) {
-    $conn->rollback();
+    $conn->rollBack();
     redirect_bookings($_current_filter, 'error');
 }

@@ -22,7 +22,7 @@ $recent_bookings = $conn->query("SELECT b.*, bd.bed_no, r.room_no, r.floor_no
                                 FROM bookings b 
                                 LEFT JOIN beds bd ON b.bed_id = bd.id 
                                 LEFT JOIN rooms r ON bd.room_id = r.id 
-                                ORDER BY b.created_at DESC LIMIT 5")->fetch_all(MYSQLI_ASSOC);
+                                ORDER BY b.created_at DESC LIMIT 5")->fetchAll();
 ?>
 <!DOCTYPE html>
 <html lang="en">

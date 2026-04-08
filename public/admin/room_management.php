@@ -17,9 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $bcount = (int)($_POST['beds_count'] ?? 4);
     if ($r_no && $bcount >= 0) {
         $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
-        $stmt->bind_param('sii', $r_no, $f_no, $bcount);
-        if ($stmt->execute()) {
-            $new_room_id = $stmt->insert_id;
+        if ($stmt->execute([$r_no, $f_no, $bcount])) {
+            $new_room_id = $conn->lastInsertId();
             for ($i = 1; $i <= $bcount; $i++) {
                 $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
                 $conn->query("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES ($new_room_id, $f_no, '$bno', 'Available')");
@@ -37,10 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
     $f_no   = (int)($_POST['floor_no'] ?? 2);
     $status = $_POST['room_status'] ?? 'Available';
     if ($r_id && $r_no) {
-        // We aren't dynamically mutating bed counts here, just tracking the label/base config
         $stmt = $conn->prepare("UPDATE rooms SET room_no = ?, floor_no = ?, status = ? WHERE id = ?");
-        $stmt->bind_param('sisi', $r_no, $f_no, $status, $r_id);
-        $stmt->execute();
+        $stmt->execute([$r_no, $f_no, $status, $r_id]);
     }
     header('Location: room_management.php');
     exit;
@@ -65,11 +62,11 @@ $rooms_res = $conn->query("
     FROM rooms r
     ORDER BY r.floor_no ASC, r.room_no ASC
 ");
-$rooms = $rooms_res ? $rooms_res->fetch_all(MYSQLI_ASSOC) : [];
+$rooms = $rooms_res ? $rooms_res->fetchAll() : [];
 
 // All beds indexed by room_id
 $beds_res = $conn->query("SELECT * FROM beds ORDER BY bed_no ASC");
-$all_beds  = $beds_res ? $beds_res->fetch_all(MYSQLI_ASSOC) : [];
+$all_beds  = $beds_res ? $beds_res->fetchAll() : [];
 $beds_by_room = [];
 foreach ($all_beds as $b) {
     $beds_by_room[$b['room_id']][] = $b;

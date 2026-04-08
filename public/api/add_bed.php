@@ -17,10 +17,8 @@ if (!$room_id) {
 
 // Get room → floor_no (stored as floor_id in beds)
 $stmt = $conn->prepare("SELECT floor_no FROM rooms WHERE id = ?");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$room = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$room_id]);
+$room = $stmt->fetch();
 
 if (!$room) {
     echo json_encode(['success' => false, 'message' => 'Room not found.']);
@@ -31,19 +29,15 @@ $floor_no = (int)$room['floor_no'];
 
 // Next bed_no = current max + 1
 $stmt = $conn->prepare("SELECT COALESCE(MAX(bed_no), 0) AS max_bed FROM beds WHERE room_id = ?");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$row = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$room_id]);
+$row = $stmt->fetch();
 
 $next_bed = (int)$row['max_bed'] + 1;
 
 // Insert new bed — status defaults to 'Available' per schema
 $stmt = $conn->prepare("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES (?, ?, ?, 'Available')");
-$stmt->bind_param("iii", $room_id, $floor_no, $next_bed);
-$stmt->execute();
-$new_bed_id = $stmt->insert_id;
-$stmt->close();
+$stmt->execute([$room_id, $floor_no, $next_bed]);
+$new_bed_id = $conn->lastInsertId();
 
 if (!$new_bed_id) {
     echo json_encode(['success' => false, 'message' => 'Failed to insert bed.']);
@@ -52,20 +46,16 @@ if (!$new_bed_id) {
 
 // Update room capacity
 $stmt = $conn->prepare("UPDATE rooms SET capacity = capacity + 1 WHERE id = ?");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$stmt->close();
+$stmt->execute([$room_id]);
 
 // Return updated summary
 $stmt = $conn->prepare("
     SELECT COUNT(*) AS total,
-           SUM(status = 'Occupied') AS occupied
+           SUM(CASE WHEN status = 'Occupied' THEN 1 ELSE 0 END) AS occupied
     FROM beds WHERE room_id = ?
 ");
-$stmt->bind_param("i", $room_id);
-$stmt->execute();
-$s = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$stmt->execute([$room_id]);
+$s = $stmt->fetch();
 
 $total     = (int)$s['total'];
 $occupied  = (int)$s['occupied'];

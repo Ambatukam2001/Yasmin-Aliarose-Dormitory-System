@@ -15,14 +15,13 @@ if ($action === 'reserve') {
     
     // Check if bed is available
     $stmt = $conn->prepare("SELECT status FROM beds WHERE id = ?");
-    $stmt->bind_param("i", $bed_id);
-    $stmt->execute();
-    $status = $stmt->get_result()->fetch_assoc()['status'] ?? '';
+    $stmt->execute([$bed_id]);
+    $bed = $stmt->fetch();
+    $status = $bed['status'] ?? '';
 
     if ($status === 'Available') {
         $stmt = $conn->prepare("UPDATE beds SET status = 'Reserved' WHERE id = ?");
-        $stmt->bind_param("i", $bed_id);
-        if ($stmt->execute()) {
+        if ($stmt->execute([$bed_id])) {
             echo json_encode(['success' => true]);
         } else {
             echo json_encode(['success' => false, 'error' => 'Database error']);
@@ -58,13 +57,12 @@ if ($action === 'finalize') {
     $booking_ref = "BK-" . strtoupper(substr(uniqid(), -6));
     
     $stmt = $conn->prepare("INSERT INTO bookings (full_name, contact_no, guardian_name, guardian_contact, category, payment_method, bed_id, booking_ref, receipt_photo, booking_status, payment_status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', 'Pending', NOW())");
-    $stmt->bind_param("ssssssiss", $name, $phone, $guardian, $guardianPhone, $category, $paymentMethod, $bedId, $booking_ref, $receipt_url);
     
-    if ($stmt->execute()) {
+    if ($stmt->execute([$name, $phone, $guardian, $guardianPhone, $category, $paymentMethod, $bedId, $booking_ref, $receipt_url])) {
         $conn->query("UPDATE beds SET status = 'Reserved' WHERE id = $bedId");
         echo json_encode(['success' => true, 'booking_ref' => $booking_ref]);
     } else {
-        echo json_encode(['success' => false, 'error' => $conn->error]);
+        echo json_encode(['success' => false, 'error' => 'Database insertion failed']);
     }
     exit;
 }
@@ -72,9 +70,8 @@ if ($action === 'finalize') {
 if ($action === 'get_payments') {
     $booking_id = $_GET['booking_id'] ?? 0;
     $stmt = $conn->prepare("SELECT * FROM payments WHERE booking_id = ? ORDER BY payment_date DESC");
-    $stmt->bind_param("i", $booking_id);
-    $stmt->execute();
-    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC));
+    $stmt->execute([$booking_id]);
+    echo json_encode($stmt->fetchAll());
     exit;
 }
 

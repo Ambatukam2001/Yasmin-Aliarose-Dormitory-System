@@ -50,12 +50,12 @@ function redirect($path) {
  */
 function get_stats($conn) {
     return [
-        'rooms' => $conn->query("SELECT COUNT(*) FROM rooms")->fetch_row()[0] ?: 0,
-        'beds' => $conn->query("SELECT COUNT(*) FROM beds")->fetch_row()[0] ?: 0,
-        'occupied' => $conn->query("SELECT COUNT(*) FROM beds WHERE status = 'Occupied'")->fetch_row()[0] ?: 0,
-        'potential_revenue' => $conn->query("SELECT SUM(monthly_rent) FROM bookings WHERE payment_status = 'Confirmed' AND booking_status = 'Active'")->fetch_row()[0] ?: 0,
-        'overdue_count' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date < NOW() AND booking_status = 'Active' AND payment_status = 'Confirmed'")->fetch_row()[0] ?: 0,
-        'due_this_week' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND booking_status = 'Active'")->fetch_row()[0] ?: 0
+        'rooms' => $conn->query("SELECT COUNT(*) FROM rooms")->fetchColumn() ?: 0,
+        'beds' => $conn->query("SELECT COUNT(*) FROM beds")->fetchColumn() ?: 0,
+        'occupied' => $conn->query("SELECT COUNT(*) FROM beds WHERE status = 'Occupied'")->fetchColumn() ?: 0,
+        'potential_revenue' => $conn->query("SELECT SUM(monthly_rent) FROM bookings WHERE payment_status = 'Confirmed' AND booking_status = 'Active'")->fetchColumn() ?: 0,
+        'overdue_count' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date < NOW() AND booking_status = 'Active' AND payment_status = 'Confirmed'")->fetchColumn() ?: 0,
+        'due_this_week' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date <= NOW() + INTERVAL '7 days' AND booking_status = 'Active'")->fetchColumn() ?: 0
     ];
 }
 ?>
