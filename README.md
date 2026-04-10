@@ -1,46 +1,15 @@
-<style>
-  .readme-header {
-    text-align: center;
-    padding: 30px;
-    font-family: Arial, sans-serif;
-  }
 
-  .logo {
-    font-size: 60px;
-  }
+<div align="center">
 
-  .title {
-    font-size: 40px;
-    font-weight: bold;
-    letter-spacing: 3px;
-    margin: 10px 0;
-  }
+<h1>🏠 YADORM</h1>
 
-  .subtitle {
-    font-size: 16px;
-    color: #555;
-    margin-bottom: 10px;
-  }
+<h3>Yasmin & Aliarose Dormitory Management System</h3>
 
-  .tagline {
-    font-size: 14px;
-    color: #777;
-  }
-</style>
+<p>
+A modern booking and dormitory management system powered by <b>Supabase</b>, built for fast, simple, and efficient reservation handling.
+</p>
 
-<div class="readme-header">
-
-  <div class="logo">🏠</div>
-
-  <div class="title">YADORM</div>
-
-  <div class="subtitle">
-    Yasmin & Aliarose Dormitory Management System
-  </div>
-
-  <div class="tagline">
-    A modern booking and management system powered by Supabase
-  </div>
+---
 
 </div>
 
