@@ -374,12 +374,18 @@
       }
     },
 
-    restoreArchivedBooking: async function (bookingId) {
+    /**
+     * Move booking back to pending (Bookings → Pending tab).
+     * Allowed from archived (trash) or completed (checked-out / past resident).
+     * Re-reserves the original bed if it is still Available.
+     */
+    restoreToPending: async function (bookingId) {
       var client = await sb();
       var row = await client.from('bookings').select('service,status').eq('id', bookingId).single();
       if (row.error) throw row.error;
-      if (String(row.data.status || '').toLowerCase() !== 'archived') {
-        throw new Error('Only archived records can be restored.');
+      var st = String(row.data.status || '').toLowerCase();
+      if (st !== 'archived' && st !== 'completed') {
+        throw new Error('Only archived or past (checked-out) records can be restored to pending.');
       }
       var bid = parseBedIdFromService(row.data.service);
       if (bid) {
@@ -390,7 +396,12 @@
         }
         await DormSupabaseData.reserveBed(bid);
       }
-      await client.from('bookings').update({ status: 'pending' }).eq('id', bookingId);
+      var upd = await client.from('bookings').update({ status: 'pending' }).eq('id', bookingId);
+      if (upd.error) throw upd.error;
+    },
+
+    restoreArchivedBooking: async function (bookingId) {
+      return DormSupabaseData.restoreToPending(bookingId);
     },
 
     fetchResidentsForDirectory: async function (tab) {

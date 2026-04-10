@@ -287,10 +287,10 @@
         }
         
         async function handleRestore(id) {
-            if (!confirm('Restore this booking to pending?')) return;
+            if (!confirm('Restore this booking to pending? The bed must be available.')) return;
             try {
                 await window.supabaseReady;
-                await DormSupabaseData.updateBookingStatus(id, 'pending');
+                await DormSupabaseData.restoreToPending(id);
                 await renderBookings();
             } catch (e) { alert(e.message || String(e)); }
         }

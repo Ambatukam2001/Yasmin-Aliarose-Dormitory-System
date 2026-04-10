@@ -327,7 +327,7 @@
                                     <i class="fas fa-trash"></i>
                                 </button>
                             ` : `
-                                <button onclick="handleRestore(${u.id})" class="btn-action btn-restore" style="background:var(--primary); color:white;">
+                                <button type="button" onclick="handleRestore(${u.id})" class="btn-action btn-restore" style="background:var(--primary); color:white;" title="Past or archive → Bookings → Pending">
                                     <i class="fas fa-undo"></i> Restore to pending
                                 </button>
                             `}
@@ -465,10 +465,10 @@
         }
 
         async function handleRestore(id) {
-            if (!confirm('Restore this booking to pending? The bed must be available.')) return;
+            if (!confirm('Restore to pending? They will appear under Bookings → Pending. The bed must be available.')) return;
             try {
                 await window.supabaseReady;
-                await DormSupabaseData.restoreArchivedBooking(id);
+                await DormSupabaseData.restoreToPending(id);
                 await renderTable();
             } catch (e) {
                 alert(e.message || String(e));
