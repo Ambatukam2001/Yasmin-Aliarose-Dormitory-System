@@ -13,7 +13,7 @@ A modern booking and dormitory management system powered by <b>Supabase</b>, bui
 
 </div>
 
-<h1> Yasmin & Aliarose Dormitory Management System </h1>1
+<h1> Yasmin & Aliarose Dormitory Management System </h1>
 
 This system is a modern web-based dormitory management and booking platform designed to handle client reservations, services, and administrative records in an organized and efficient way. It provides a smooth and user-friendly interface for users to submit bookings while allowing administrators to manage and monitor all data in real time.
 
