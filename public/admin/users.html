@@ -224,39 +224,62 @@
     </div>
 
     <!-- Scripts -->
+    <script src="../assets/js/supabase-config.js"></script>
+    <script src="../assets/js/supabase.js"></script>
+    <script src="../assets/js/dorm-supabase-data.js"></script>
     <script src="../assets/js/state.js"></script>
     <script src="../assets/js/admin-components.js"></script>
 
     <script>
         let currentTab = 'active';
 
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             AdminComponents.renderSidebar('users');
             AdminComponents.renderMobileHeader('Residents');
-            renderTable();
+            try {
+                await window.supabaseReady;
+                DormSupabaseData.subscribeBookings(function () { renderTable(); }).catch(function () {});
+            } catch (e) { console.warn(e); }
+            await renderTable();
         });
+
+        function escU(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        }
 
         function switchTab(tab, btn) {
             currentTab = tab;
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            document.getElementById('dateHeader').textContent = tab === 'active' ? 'Joined Date' : 'Deleted Date';
+            document.getElementById('dateHeader').textContent = tab === 'active' ? 'Joined Date' : (tab === 'past' ? 'Ended' : 'Archived');
             renderTable();
         }
 
-        function renderTable() {
-            let data = [];
-            if (currentTab === 'active') {
-                data = DormState.data.bookings.filter(b => b.booking_status === 'Active');
-            } else if (currentTab === 'past') {
-                data = DormState.data.bookings.filter(b => b.booking_status === 'Completed');
-            } else {
-                data = DormState.data.deletedBookings;
-            }
+        async function renderTable() {
             const tbody = document.getElementById('residentsBody');
-            
-            // Update trash count
-            document.getElementById('trashCount').textContent = DormState.data.deletedBookings.length;
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-muted">Loading…</td></tr>';
+
+            let data = [];
+            try {
+                await window.supabaseReady;
+                data = await DormSupabaseData.fetchResidentsForDirectory(currentTab);
+                if (currentTab === 'archive') {
+                    document.getElementById('trashCount').textContent = String(data.length);
+                }
+            } catch (e) {
+                console.error(e);
+                if (currentTab === 'active') {
+                    data = DormState.data.bookings.filter(b => b.booking_status === 'Active');
+                } else if (currentTab === 'past') {
+                    data = DormState.data.bookings.filter(b => b.booking_status === 'Completed');
+                } else {
+                    data = DormState.data.deletedBookings;
+                }
+                document.getElementById('trashCount').textContent = DormState.data.deletedBookings.length;
+            }
 
             if (data.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">
@@ -267,31 +290,34 @@
             }
 
             tbody.innerHTML = data.map(u => {
-                const dateKey = currentTab === 'active' ? u.created_at : u.deleted_at;
-                const formattedDate = new Date(dateKey).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
-                
+                const dateKey = u.created_at || u.deleted_at;
+                let formattedDate = '—';
+                try {
+                    formattedDate = new Date(dateKey).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' });
+                } catch (_) {}
+
                 return `
                 <tr>
                     <td>
-                        <div class="font-bold" style="font-size:1.1rem; color:#1e293b;">${u.full_name}</div>
-                        <div class="font-mono text-xs text-muted">${u.contact_number}</div>
+                        <div class="font-bold" style="font-size:1.1rem; color:#1e293b;">${escU(u.full_name)}</div>
+                        <div class="font-mono text-xs text-muted">${escU(u.contact_number)}</div>
                     </td>
                     <td>
-                        <div class="text-sm font-bold">${u.guardian_name}</div>
-                        <div class="text-xs text-muted"><i class="fas fa-phone"></i> ${u.guardian_contact}</div>
+                        <div class="text-sm font-bold">${escU(u.guardian_name)}</div>
+                        <div class="text-xs text-muted"><i class="fas fa-phone"></i> ${escU(u.guardian_contact)}</div>
                     </td>
-                    <td><span class="badge badge-info">${u.category}</span></td>
+                    <td><span class="badge badge-info">${escU(u.category)}</span></td>
                     <td><span class="text-sm font-medium">${formattedDate}</span></td>
                     <td class="text-right">
                         <div class="actions-flex">
                             ${currentTab === 'active' ? `
-                                <button onclick="openPayment(${u.id}, '${u.full_name}')" class="btn-action btn-confirm" title="Log Rent Payment">
+                                <button type="button" onclick="openPaymentById(${u.id})" class="btn-action btn-confirm" title="Log Rent Payment">
                                     <i class="fas fa-hand-holding-usd"></i> Rent
                                 </button>
                                 <button onclick="confirmCheckout(${u.id})" class="btn-action btn-edit" style="background:#f1f5f9; color:#475569;" title="Checkout Resident">
                                     <i class="fas fa-door-closed"></i> Out
                                 </button>
-                                <button onclick="openHistory(${u.id}, '${u.full_name}')" class="btn-action btn-history" title="Payment History">
+                                <button type="button" onclick="openHistoryById(${u.id})" class="btn-action btn-history" title="Details">
                                     <i class="fas fa-receipt"></i>
                                 </button>
                                 <button onclick="openEdit(${u.id})" class="btn-action btn-edit" title="Edit Resident">
@@ -302,7 +328,7 @@
                                 </button>
                             ` : `
                                 <button onclick="handleRestore(${u.id})" class="btn-action btn-restore" style="background:var(--primary); color:white;">
-                                    <i class="fas fa-undo"></i> Restore to Active
+                                    <i class="fas fa-undo"></i> Restore to pending
                                 </button>
                             `}
                         </div>
@@ -324,148 +350,208 @@
 
         // --- Actions ---
 
-        function openEdit(id) {
-            const u = DormState.data.bookings.find(b => b.id == id);
-            if (!u) return;
-
-            document.getElementById('edit_id').value = u.id;
-            document.getElementById('edit_name').value = u.full_name;
-            document.getElementById('edit_contact').value = u.contact_number;
-            document.getElementById('edit_guardian').value = u.guardian_name;
-            document.getElementById('edit_guardian_contact').value = u.guardian_contact;
-            document.getElementById('edit_category').value = u.category;
-            document.getElementById('edit_school').value = u.school_name || "";
-            document.getElementById('edit_due').value = u.due_date || "";
-            document.getElementById('edit_remarks').value = u.remarks || "";
-
-            document.getElementById('editModal').style.display = 'flex';
+        async function openEdit(id) {
+            try {
+                await window.supabaseReady;
+                const { data, error } = await window.dormSupabase.from('bookings').select('*').eq('id', id).single();
+                if (error) throw error;
+                const meta = DormSupabaseData.parseServiceDetails(data.service);
+                document.getElementById('edit_id').value = id;
+                document.getElementById('edit_name').value = data.name;
+                document.getElementById('edit_contact').value = meta.contact;
+                document.getElementById('edit_guardian').value = meta.guardian_name;
+                document.getElementById('edit_guardian_contact').value = meta.guardian_contact;
+                document.getElementById('edit_category').value = meta.category || 'College';
+                document.getElementById('edit_school').value = meta.school_name || '';
+                document.getElementById('edit_due').value = '';
+                document.getElementById('edit_remarks').value = '';
+                document.getElementById('editModal').style.display = 'flex';
+            } catch (err) {
+                const u = DormState.data.bookings.find(b => b.id == id);
+                if (!u) return;
+                document.getElementById('edit_id').value = u.id;
+                document.getElementById('edit_name').value = u.full_name;
+                document.getElementById('edit_contact').value = u.contact_number;
+                document.getElementById('edit_guardian').value = u.guardian_name;
+                document.getElementById('edit_guardian_contact').value = u.guardian_contact;
+                document.getElementById('edit_category').value = u.category;
+                document.getElementById('edit_school').value = u.school_name || '';
+                document.getElementById('edit_due').value = u.due_date || '';
+                document.getElementById('edit_remarks').value = u.remarks || '';
+                document.getElementById('editModal').style.display = 'flex';
+            }
         }
 
-        function handleEditSubmit(e) {
+        async function handleEditSubmit(e) {
             e.preventDefault();
             const id = document.getElementById('edit_id').value;
-            const newData = {
-                full_name: document.getElementById('edit_name').value,
-                contact_number: document.getElementById('edit_contact').value,
-                guardian_name: document.getElementById('edit_guardian').value,
-                guardian_contact: document.getElementById('edit_guardian_contact').value,
-                category: document.getElementById('edit_category').value,
-                school_name: document.getElementById('edit_school').value,
-                due_date: document.getElementById('edit_due').value,
-                remarks: document.getElementById('edit_remarks').value
-            };
-
-            if (DormState.updateBooking(id, newData)) {
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.updateResidentDetails(id, {
+                    full_name: document.getElementById('edit_name').value,
+                    contact_number: document.getElementById('edit_contact').value,
+                    guardian_name: document.getElementById('edit_guardian').value,
+                    guardian_contact: document.getElementById('edit_guardian_contact').value,
+                    category: document.getElementById('edit_category').value,
+                    school_name: document.getElementById('edit_school').value,
+                });
                 closeModal('editModal');
-                renderTable();
+                await renderTable();
+            } catch (err) {
+                if (DormState.updateBooking(id, {
+                    full_name: document.getElementById('edit_name').value,
+                    contact_number: document.getElementById('edit_contact').value,
+                    guardian_name: document.getElementById('edit_guardian').value,
+                    guardian_contact: document.getElementById('edit_guardian_contact').value,
+                    category: document.getElementById('edit_category').value,
+                    school_name: document.getElementById('edit_school').value,
+                    due_date: document.getElementById('edit_due').value,
+                    remarks: document.getElementById('edit_remarks').value
+                })) {
+                    closeModal('editModal');
+                    renderTable();
+                }
             }
         }
 
-        function openHistory(id, name) {
-            document.getElementById('history_name').textContent = name;
+        async function openHistoryById(id) {
             const container = document.getElementById('historyContent');
-            
-            // Logic to get payments for this resident (from state.js)
-            const payments = DormState.data.bookings.find(b => b.id == id)?.payments || [];
-            
-            if (payments.length === 0) {
-                container.innerHTML = `<div class="text-center py-8 text-muted">No payment records found for this resident.</div>`;
-            } else {
-                container.innerHTML = payments.map(p => `
-                    <div class="ph-row">
-                        <div class="ph-amount">₱${parseFloat(p.amount).toLocaleString()}</div>
-                        <div class="ph-date">${new Date(p.date).toLocaleDateString()} &middot; ${p.method}</div>
-                    </div>
-                `).join('');
-            }
-
+            container.innerHTML = '<div class="text-center py-4 text-muted">Loading…</div>';
             document.getElementById('historyModal').style.display = 'flex';
+            try {
+                await window.supabaseReady;
+                const { data, error } = await window.dormSupabase.from('bookings').select('service, name').eq('id', id).single();
+                if (error) throw error;
+                document.getElementById('history_name').textContent = data.name || '';
+                container.innerHTML = '<pre style="white-space:pre-wrap;font-size:0.85rem;font-family:inherit;line-height:1.45;">' + escU(data.service) + '</pre>';
+            } catch (_) {
+                document.getElementById('history_name').textContent = '';
+                const payments = DormState.data.bookings.find(b => b.id == id)?.payments || [];
+                if (!payments.length) {
+                    container.innerHTML = '<div class="text-center py-8 text-muted">No payment records found.</div>';
+                } else {
+                    container.innerHTML = payments.map(p => `
+                        <div class="ph-row">
+                            <div class="ph-amount">₱${parseFloat(p.amount).toLocaleString()}</div>
+                            <div class="ph-date">${new Date(p.date).toLocaleDateString()}</div>
+                        </div>
+                    `).join('');
+                }
+            }
         }
 
-        function confirmDelete(id) {
-            if (confirm('Move this resident to the Archive? Their bed will be freed.')) {
+        async function confirmDelete(id) {
+            if (!confirm('Move this resident to the Archive? Their bed will be freed.')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.archiveBooking(id);
+                await renderTable();
+            } catch (e) {
                 DormState.deleteBooking(id);
                 renderTable();
             }
         }
 
-        function confirmCheckout(id) {
-            if (confirm('Mark this resident as Checked Out? They will be moved to Past Residents.')) {
+        async function confirmCheckout(id) {
+            if (!confirm('Mark this resident as checked out? They will move to Past Residents.')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.checkoutBooking(id);
+                await renderTable();
+            } catch (e) {
                 DormState.checkoutBooking(id);
                 renderTable();
             }
         }
 
-        function handleRestore(id) {
-            if (confirm('Restore this account to Active? Their previous bed will be re-assigned if available.')) {
-                if (DormState.restoreBooking(id)) {
-                    renderTable();
-                } else {
-                    alert('Could not restore. The original bed might already be occupied.');
-                }
+        async function handleRestore(id) {
+            if (!confirm('Restore this booking to pending? The bed must be available.')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.restoreArchivedBooking(id);
+                await renderTable();
+            } catch (e) {
+                alert(e.message || String(e));
             }
         }
 
-        function openPayment(id, name) {
-            const b = DormState.getBookings().find(x => x.id == id);
+        async function openPaymentById(id) {
             document.getElementById('pay_id').value = id;
-            document.getElementById('pay_name').textContent = name;
-            
-            // Set default monthly rent amount
-            document.getElementById('pay_amount').value = b?.monthly_rent || 1500;
-            
-            // Set default due to 1 month from now
+            document.getElementById('pay_amount').value = 1600;
             let d = new Date();
             d.setMonth(d.getMonth() + 1);
             document.getElementById('pay_due').value = d.toISOString().split('T')[0];
-
+            try {
+                await window.supabaseReady;
+                const { data, error } = await window.dormSupabase.from('bookings').select('name').eq('id', id).single();
+                document.getElementById('pay_name').textContent = error ? '' : (data && data.name) ? data.name : '';
+            } catch (_) {
+                document.getElementById('pay_name').textContent = '';
+            }
             document.getElementById('paymentModal').style.display = 'flex';
         }
 
-        function handlePaymentSubmit(e) {
+        async function handlePaymentSubmit(e) {
             e.preventDefault();
             const id = document.getElementById('pay_id').value;
             const amt = document.getElementById('pay_amount').value;
             const due = document.getElementById('pay_due').value;
-            DormState.processPayment(id, amt, 'Manual (Directory)', due);
-            closeModal('paymentModal');
-            renderTable();
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.recordRentPayment(id, amt, due);
+                closeModal('paymentModal');
+                await renderTable();
+            } catch (err) {
+                DormState.processPayment(id, amt, 'Manual (Directory)', due);
+                closeModal('paymentModal');
+                renderTable();
+            }
         }
 
-        // --- Add Resident Logic ---
-        function openAddResidentModal() {
+        async function openAddResidentModal() {
             const roomSel = document.getElementById('add_room_id');
-            const rooms = DormState.data.rooms;
-            
-            // Find rooms with available beds
-            const availableRooms = rooms.filter(r => {
-                const beds = DormState.getBeds(r.id);
-                return beds.some(b => b.status === 'Available');
-            });
-
-            roomSel.innerHTML = '<option value="">— Select Room —</option>' + 
-                availableRooms.map(r => `<option value="${r.id}">Room ${r.room_no} (${r.floor_no}${r.floor_no==2?'nd':r.floor_no==3?'rd':'th'} Floor)</option>`).join('');
-            
+            try {
+                await window.supabaseReady;
+                const rooms = await DormSupabaseData.listRoomsForSelect();
+                const withVacancy = [];
+                for (const r of rooms) {
+                    const beds = await DormSupabaseData.fetchRoomBeds(r.id);
+                    if (beds.some(b => b.status === 'Available')) withVacancy.push(r);
+                }
+                roomSel.innerHTML = '<option value="">— Select Room —</option>' +
+                    withVacancy.map(r => `<option value="${r.id}">Room ${escU(r.room_no)} (${r.floor_no}${r.floor_no==2?'nd':r.floor_no==3?'rd':'th'} Floor)</option>`).join('');
+            } catch (err) {
+                const rooms = DormState.data.rooms.filter(r => DormState.getBeds(r.id).some(b => b.status === 'Available'));
+                roomSel.innerHTML = '<option value="">— Select Room —</option>' +
+                    rooms.map(r => `<option value="${r.id}">Room ${r.room_no}</option>`).join('');
+            }
             document.getElementById('add_bed_id').innerHTML = '<option value="">— Select Bed —</option>';
             document.getElementById('add_bed_id').disabled = true;
             document.getElementById('addResidentModal').style.display = 'flex';
         }
 
-        function loadAvailableBeds(roomId) {
+        async function loadAvailableBeds(roomId) {
             const bedSel = document.getElementById('add_bed_id');
             if (!roomId) {
                 bedSel.innerHTML = '<option value="">— Select Bed —</option>';
                 bedSel.disabled = true;
                 return;
             }
-
-            const beds = DormState.getBeds(roomId).filter(b => b.status === 'Available');
-            bedSel.innerHTML = '<option value="">— Select Bed —</option>' + 
-                beds.map(b => `<option value="${b.id}">${b.bed_no % 2 === 0 ? 'Upper Deck' : 'Lower Deck'} (Bed ${b.bed_no})</option>`).join('');
-            bedSel.disabled = false;
+            try {
+                await window.supabaseReady;
+                const beds = (await DormSupabaseData.fetchRoomBeds(roomId)).filter(b => b.status === 'Available');
+                bedSel.innerHTML = '<option value="">— Select Bed —</option>' +
+                    beds.map(b => `<option value="${b.id}">${b.bed_no % 2 === 0 ? 'Upper Deck' : 'Lower Deck'} (Bed ${b.bed_no})</option>`).join('');
+                bedSel.disabled = false;
+            } catch (e) {
+                const beds = DormState.getBeds(roomId).filter(b => b.status === 'Available');
+                bedSel.innerHTML = '<option value="">— Select Bed —</option>' +
+                    beds.map(b => `<option value="${b.id}">Bed ${b.bed_no}</option>`).join('');
+                bedSel.disabled = false;
+            }
         }
 
-        function handleAddResidentSubmit(e) {
+        async function handleAddResidentSubmit(e) {
             e.preventDefault();
             const formData = {
                 full_name: document.getElementById('add_name').value.trim(),
@@ -474,24 +560,29 @@
                 guardian_contact: document.getElementById('add_guardian_contact').value.trim(),
                 category: document.getElementById('add_category').value,
                 school_name: document.getElementById('add_school').value.trim(),
-                bed_id: parseInt(document.getElementById('add_bed_id').value),
-                room_id: parseInt(document.getElementById('add_room_id').value)
+                bed_id: parseInt(document.getElementById('add_bed_id').value, 10),
+                room_id: parseInt(document.getElementById('add_room_id').value, 10)
             };
-
-            const result = DormState.addBooking(formData);
-            if (result) {
-                // Confirm it immediately since admin is adding manually
-                DormState.acceptBooking(result.id);
-                
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.createManualResident(formData);
                 closeModal('addResidentModal');
                 document.getElementById('addResidentForm').reset();
-                renderTable();
-                
-                // Show success notification (using standard alert as placeholder for now, or SweetAlert if available)
+                await renderTable();
                 if (typeof Swal !== 'undefined') {
                     Swal.fire('Success', 'Resident added and bed assigned.', 'success');
                 } else {
                     alert('Resident added successfully!');
+                }
+            } catch (err) {
+                const result = DormState.addBooking(formData);
+                if (result) {
+                    DormState.acceptBooking(result.id);
+                    closeModal('addResidentModal');
+                    document.getElementById('addResidentForm').reset();
+                    renderTable();
+                } else {
+                    alert(err.message || String(err));
                 }
             }
         }

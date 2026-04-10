@@ -22,6 +22,43 @@
     return s.slice(i + 'receipt:'.length).trim().split(/\s·/)[0].trim();
   }
 
+  function parseServiceDetails(service) {
+    var s = service || '';
+    var contact = '';
+    var cm = s.match(/Contact:\s*([^·]+)/);
+    if (cm) contact = cm[1].trim();
+    var g = s.match(/Guardian:\s*([^(·]+)\s*\(([^)]+)\)/);
+    var guardian_name = g ? g[1].trim() : '';
+    var guardian_contact = g ? g[2].trim() : '';
+    var cat = 'College';
+    if (/\bReviewer\b/.test(s)) cat = 'Reviewer';
+    else if (/\bHigh School\b/.test(s)) cat = 'High School';
+    else if (/\bCollege\b/.test(s)) cat = 'College';
+    var sm = s.match(/School:\s*([^·]+)/);
+    var school_name = sm ? sm[1].trim() : '';
+    var rm = s.match(/Room\s+([^·]+?)(?=\s*·|\s*$)/);
+    var room_no = rm ? rm[1].trim() : '';
+    var fm = s.match(/Floor\s+(\d+)/);
+    var floor_no = fm ? parseInt(fm[1], 10) : null;
+    return {
+      contact: contact,
+      guardian_name: guardian_name,
+      guardian_contact: guardian_contact,
+      category: cat,
+      school_name: school_name,
+      room_no: room_no,
+      floor_no: floor_no,
+    };
+  }
+
+  function extractLastDueFromService(service) {
+    var re = /due:(\d{4}-\d{2}-\d{2})/g;
+    var m;
+    var last = '';
+    while ((m = re.exec(service || '')) !== null) last = m[1];
+    return last;
+  }
+
   function mapPaymentStatus(st) {
     var s = String(st || '').toLowerCase();
     if (s === 'pending') return 'Pending';
@@ -44,6 +81,8 @@
 
   function normalizeBookingRow(b) {
     var bid = parseBedIdFromService(b.service);
+    var meta = parseServiceDetails(b.service);
+    var dueExtra = extractLastDueFromService(b.service);
     return {
       id: b.id,
       full_name: b.name,
@@ -52,15 +91,18 @@
       date: b.date,
       status: b.status,
       booking_ref: 'BK-' + b.id,
-      category: '',
-      contact_number: '',
-      floor_no: null,
-      room_no: null,
+      category: meta.category,
+      contact_number: meta.contact,
+      guardian_name: meta.guardian_name,
+      guardian_contact: meta.guardian_contact,
+      school_name: meta.school_name,
+      floor_no: meta.floor_no,
+      room_no: meta.room_no,
       bed_id: bid,
       payment_status: mapPaymentStatus(b.status),
       booking_status: mapBookingStatus(b.status),
       monthly_rent: 1600,
-      due_date: b.date,
+      due_date: dueExtra || b.date,
       receipt_path: extractReceiptUrl(b.service),
     };
   }
@@ -86,6 +128,7 @@
 
   var DormSupabaseData = {
     parseBedIdFromService: parseBedIdFromService,
+    parseServiceDetails: parseServiceDetails,
 
     buildBookingService: function (opts) {
       var bedId = opts.bedId;
@@ -329,6 +372,137 @@
       if (bid && (st === 'pending' || st === 'active')) {
         await DormSupabaseData.setBedAvailable(bid);
       }
+    },
+
+    restoreArchivedBooking: async function (bookingId) {
+      var client = await sb();
+      var row = await client.from('bookings').select('service,status').eq('id', bookingId).single();
+      if (row.error) throw row.error;
+      if (String(row.data.status || '').toLowerCase() !== 'archived') {
+        throw new Error('Only archived records can be restored.');
+      }
+      var bid = parseBedIdFromService(row.data.service);
+      if (bid) {
+        var bed = await client.from('beds').select('status').eq('id', bid).single();
+        if (bed.error) throw bed.error;
+        if (bed.data.status !== 'Available') {
+          throw new Error('The original bed is no longer available.');
+        }
+        await DormSupabaseData.reserveBed(bid);
+      }
+      await client.from('bookings').update({ status: 'pending' }).eq('id', bookingId);
+    },
+
+    fetchResidentsForDirectory: async function (tab) {
+      var client = await sb();
+      var q = client.from('bookings').select('*').order('id', { ascending: false });
+      if (tab === 'active') q = q.eq('status', 'active');
+      else if (tab === 'past') q = q.eq('status', 'completed');
+      else if (tab === 'archive') q = q.eq('status', 'archived');
+      var res = await q;
+      if (res.error) throw res.error;
+      return (res.data || []).map(function (b) {
+        var n = normalizeBookingRow(b);
+        return {
+          id: n.id,
+          full_name: n.full_name,
+          contact_number: n.contact_number,
+          guardian_name: n.guardian_name,
+          guardian_contact: n.guardian_contact,
+          category: n.category,
+          school_name: n.school_name,
+          booking_status: n.booking_status,
+          payment_status: n.payment_status,
+          due_date: n.due_date,
+          created_at: b.date,
+          deleted_at: tab === 'archive' ? b.date : null,
+          service: b.service,
+          booking_ref: n.booking_ref,
+        };
+      });
+    },
+
+    listRoomsForSelect: async function () {
+      var client = await sb();
+      var res = await client.from('rooms').select('id, room_no, floor_no').order('id', { ascending: true });
+      if (res.error) throw res.error;
+      return res.data || [];
+    },
+
+    updateResidentDetails: async function (bookingId, fields) {
+      var client = await sb();
+      var row = await client.from('bookings').select('service, name').eq('id', bookingId).single();
+      if (row.error) throw row.error;
+      var old = row.data.service || '';
+      var bid = parseBedIdFromService(old);
+      var meta = parseServiceDetails(old);
+      var roomNo = fields.room_no != null ? String(fields.room_no) : meta.room_no || '?';
+      var floorNo =
+        fields.floor_no != null ? parseInt(fields.floor_no, 10) : meta.floor_no != null ? meta.floor_no : 2;
+      var payM = old.match(/Payment:\s*([^·]+)/);
+      var paymentMethod = payM ? payM[1].trim() : 'Manual';
+      var newService = DormSupabaseData.buildBookingService({
+        bedId: bid || 0,
+        roomNo: roomNo,
+        floorNo: floorNo,
+        category: fields.category || meta.category,
+        school: fields.school_name != null ? fields.school_name : meta.school_name,
+        contact: fields.contact_number || meta.contact,
+        guardian: fields.guardian_name || meta.guardian_name,
+        guardianContact: fields.guardian_contact || meta.guardian_contact,
+        paymentMethod: paymentMethod,
+      });
+      if (bid) {
+        newService = newService.replace(/^\[bed:\d+\]/, '[bed:' + bid + ']');
+      }
+      var upd = await client
+        .from('bookings')
+        .update({
+          name: fields.full_name || row.data.name,
+          service: newService,
+        })
+        .eq('id', bookingId);
+      if (upd.error) throw upd.error;
+    },
+
+    createManualResident: async function (form) {
+      var client = await sb();
+      var room = await client
+        .from('rooms')
+        .select('room_no, floor_no')
+        .eq('id', form.room_id)
+        .single();
+      if (room.error) throw room.error;
+      var bed = await client.from('beds').select('id, status').eq('id', form.bed_id).single();
+      if (bed.error) throw bed.error;
+      if (bed.data.status !== 'Available') {
+        throw new Error('Selected bed is not available.');
+      }
+      var service = DormSupabaseData.buildBookingService({
+        bedId: form.bed_id,
+        roomNo: room.data.room_no,
+        floorNo: room.data.floor_no,
+        category: form.category,
+        school: form.school_name || '',
+        contact: form.contact_number,
+        guardian: form.guardian_name,
+        guardianContact: form.guardian_contact,
+        paymentMethod: 'Manual (Admin)',
+      });
+      var today = new Date().toISOString().slice(0, 10);
+      var ins = await client
+        .from('bookings')
+        .insert({
+          name: form.full_name,
+          service: service,
+          date: today,
+          status: 'active',
+        })
+        .select('id')
+        .single();
+      if (ins.error) throw ins.error;
+      await DormSupabaseData.setBedOccupied(form.bed_id);
+      return ins.data;
     },
 
     findBlockingBookingForBed: async function (bedId) {

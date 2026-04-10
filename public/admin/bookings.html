@@ -207,7 +207,7 @@
                                 </button>
                             ` : `
                                 ${hasReceipt ? `
-                                    <button onclick="openReceipt(${JSON.stringify(b.receipt_path)})" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
+                                    <button type="button" onclick="openReceiptByBookingId(${b.id})" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
                                         <i class="fas fa-image"></i> Receipt
                                     </button>
                                 ` : ''}
@@ -218,8 +218,8 @@
                                 ` : ''}
                                 
                                 ${isActive ? `
-                                    <button onclick="openPayment(${b.id}, ${JSON.stringify(b.full_name)})" class="btn-action btn-confirm" title="Log Rent Payment"><i class="fas fa-hand-holding-usd"></i> Rent</button>
-                                    <button onclick="handleCheckout(${b.id})" class="btn-action btn-history" style="background:#f1f5f9; color:#334155;" title="Resident Move Out"><i class="fas fa-sign-out-alt"></i> Out</button>
+                                    <button type="button" onclick="openPaymentById(${b.id})" class="btn-action btn-confirm" title="Log Rent Payment"><i class="fas fa-hand-holding-usd"></i> Rent</button>
+                                    <button type="button" onclick="handleCheckout(${b.id})" class="btn-action btn-history" style="background:#f1f5f9; color:#334155;" title="Resident Move Out"><i class="fas fa-sign-out-alt"></i> Out</button>
                                 ` : ''}
 
                                 <button onclick="handleDelete(${b.id})" class="btn-action btn-danger" title="Move to Archive"><i class="fas fa-trash-alt"></i></button>
@@ -304,10 +304,9 @@
             } catch (e) { alert(e.message || String(e)); }
         }
 
-        function openReceipt(receiptPath) {
+        function showReceiptUrl(receiptPath) {
             const img = document.getElementById('receiptImg');
             const msg = document.getElementById('noReceiptMsg');
-            
             if (receiptPath) {
                 img.src = receiptPath;
                 img.style.display = 'block';
@@ -319,15 +318,33 @@
             document.getElementById('receiptModal').style.display = 'flex';
         }
 
-        function openPayment(id, name) {
+        async function openReceiptByBookingId(id) {
+            try {
+                await window.supabaseReady;
+                const { data, error } = await window.dormSupabase.from('bookings').select('service').eq('id', id).single();
+                if (error) throw error;
+                const s = (data && data.service) ? data.service : '';
+                const i = s.indexOf('receipt:');
+                const url = i === -1 ? '' : s.slice(i + 'receipt:'.length).trim().split(/ ·/)[0].trim();
+                showReceiptUrl(url);
+            } catch (e) {
+                showReceiptUrl('');
+            }
+        }
+
+        async function openPaymentById(id) {
             document.getElementById('pay_id').value = id;
-            document.getElementById('pay_name').textContent = name;
             document.getElementById('pay_amount').value = 1600;
-            
             let d = new Date();
             d.setMonth(d.getMonth() + 1);
             document.getElementById('pay_due').value = d.toISOString().split('T')[0];
-
+            try {
+                await window.supabaseReady;
+                const { data, error } = await window.dormSupabase.from('bookings').select('name').eq('id', id).single();
+                document.getElementById('pay_name').textContent = error ? '' : (data && data.name) ? data.name : '';
+            } catch (_) {
+                document.getElementById('pay_name').textContent = '';
+            }
             document.getElementById('paymentModal').style.display = 'flex';
         }
 
