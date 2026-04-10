@@ -51,7 +51,9 @@
 </div>
 </main>
 
-<!-- Netlify Compatibility Library -->
+<script src="assets/js/supabase-config.js"></script>
+<script src="assets/js/supabase.js"></script>
+<script src="assets/js/dorm-supabase-data.js"></script>
 <script src="assets/js/state.js"></script>
 <script src="assets/js/components.js"></script>
 <script src="assets/js/booking.js"></script>
@@ -74,13 +76,12 @@
         </div>`;
 
         try {
-            const res = await fetch(`/api/room_api?action=floor_rooms&floor_no=${floor}`);
-            const rooms = await res.json();
+            const rooms = await DormSupabaseData.fetchFloorRooms(floor);
             renderRooms(rooms, floor);
         } catch (e) {
             grid.innerHTML = `<div style="text-align:center;padding:2rem;color:#64748b;font-family:'Inter',sans-serif;font-weight:600;">
                 <i class="fas fa-exclamation-circle" style="font-size:2rem;display:block;margin-bottom:.75rem;"></i>
-                Failed to load rooms. Please refresh.
+                ${(e && e.message) ? String(e.message).replace(/</g, '&lt;') : 'Failed to load rooms. Check database connection.'}
             </div>`;
         }
     }
@@ -146,12 +147,12 @@
         const floors = [2, 3, 4];
         for (const f of floors) {
             try {
-                const res = await fetch(`/api/room_api?action=floor_rooms&floor_no=${f}`);
-                const rooms = await res.json();
+                const rooms = await DormSupabaseData.fetchFloorRooms(f);
 
                 const totalBeds = (rooms || []).reduce((sum, r) => sum + (parseInt(r.total_beds) || 0), 0);
-                const occupiedCount = (rooms || []).reduce((sum, r) => sum + (parseInt(r.occupied_count) || 0), 0);
-                const free = totalBeds - occupiedCount;
+                const occ = (rooms || []).reduce((sum, r) => sum + (parseInt(r.occupied_count) || 0), 0);
+                const res = (rooms || []).reduce((sum, r) => sum + (parseInt(r.reserved_count) || 0), 0);
+                const free = Math.max(0, totalBeds - occ - res);
 
                 const badgeEl = document.getElementById(`badge-${f}`);
                 if (!badgeEl) continue;

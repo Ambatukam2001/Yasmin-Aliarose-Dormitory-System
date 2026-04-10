@@ -100,18 +100,20 @@
     </div>
 
     <!-- Scripts -->
+    <script src="../assets/js/supabase-config.js"></script>
+    <script src="../assets/js/supabase.js"></script>
+    <script src="../assets/js/dorm-supabase-data.js"></script>
     <script src="../assets/js/state.js"></script>
     <script src="../assets/js/admin-components.js"></script>
     <script src="../assets/js/admin-logic.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             AdminComponents.renderSidebar('dashboard');
             AdminComponents.renderMobileHeader('Dashboard');
             
-            // Set default date
             document.getElementById('pay_date').value = new Date().toISOString().split('T')[0];
             
-            AdminLogic.initDashboard();
+            await AdminLogic.initDashboard();
         });
     </script>
 </body>

@@ -1,9 +1,5 @@
 {
   "name": "dormitory-system",
   "private": true,
-  "dependencies": {
-    "busboy": "^1.0.0",
-    "pg": "^8.0.0"
-  }
+  "description": "Static frontend + Supabase (no Node server required for booking/rooms)."
 }
-

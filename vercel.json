@@ -6,6 +6,7 @@
     { "source": "/booking", "destination": "/public/booking.html" },
     { "source": "/login", "destination": "/public/login.html" },
     { "source": "/admin", "destination": "/public/admin/dashboard.html" },
+    { "source": "/admin/room_management.php", "destination": "/public/admin/room_management.html" },
     { "source": "/admin/(.*)", "destination": "/public/admin/$1" },
     { "source": "/assets/(.*)", "destination": "/public/assets/$1" },
     { "source": "/uploads/(.*)", "destination": "/public/uploads/$1" }

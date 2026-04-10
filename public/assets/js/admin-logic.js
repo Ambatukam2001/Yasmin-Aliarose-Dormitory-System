@@ -2,28 +2,59 @@
  * ADMIN-LOGIC.JS - Interaction for Admin Pages
  */
 
+function _escDash(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/"/g, '&quot;');
+}
+
 const AdminLogic = {
-    initDashboard() {
-        const stats = DormState.getStats();
-        const mapping = {
-            'total-rooms': stats.rooms,
-            'available-beds': stats.available,
-            'potential-revenue': `₱${stats.revenue.toLocaleString()}`,
-            'overdue-payments': stats.overdue
-        };
+    async initDashboard() {
+        const tbody = document.querySelector('#recentBookingsTable tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading…</td></tr>';
 
-        Object.keys(mapping).forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = mapping[id];
-        });
+        try {
+            await window.supabaseReady;
+            const stats = await DormSupabaseData.getDashboardStats();
+            const mapping = {
+                'total-rooms': stats.rooms,
+                'available-beds': stats.availableBeds,
+                'potential-revenue': stats.revenue,
+                'overdue-payments': stats.overdue,
+            };
+            Object.keys(mapping).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = mapping[id];
+            });
+        } catch (e) {
+            const stats = DormState.getStats();
+            const mapping = {
+                'total-rooms': stats.rooms,
+                'available-beds': stats.available,
+                'potential-revenue': `₱${stats.revenue.toLocaleString()}`,
+                'overdue-payments': stats.overdue,
+            };
+            Object.keys(mapping).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = mapping[id];
+            });
+        }
 
-        this.renderRecentReservations();
+        await this.renderRecentReservations();
     },
 
-    renderRecentReservations() {
-        const bookings = DormState.getBookings().slice(-5).reverse();
+    async renderRecentReservations() {
         const tbody = document.querySelector('#recentBookingsTable tbody');
         if (!tbody) return;
+
+        let bookings = [];
+        try {
+            await window.supabaseReady;
+            bookings = await DormSupabaseData.fetchRecentBookings(5);
+        } catch (e) {
+            bookings = DormState.getBookings().slice(-5).reverse();
+        }
 
         if (bookings.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">No recent bookings.</td></tr>';
@@ -31,40 +62,35 @@ const AdminLogic = {
         }
 
         tbody.innerHTML = bookings.map(b => {
-            const bed = DormState.getBed(b.bed_id);
-            const room = DormState.data.rooms.find(r => r.id == (bed ? bed.room_id : null));
-            const hasReceipt = b.receipt_image && b.receipt_image.length > 0;
-            
+            const ref = b.booking_ref || ('BK-' + b.id);
+            const pay = (b.payment_status || 'pending').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pending';
+            const hasReceipt = !!(b.receipt_path && String(b.receipt_path).length);
+            const name = _escDash(b.full_name || b.name);
+            const svc = _escDash((b.service || '').slice(0, 80));
+
             return `
             <tr>
-                <td class="font-mono font-bold color-primary">${b.booking_ref}</td>
+                <td class="font-mono font-bold color-primary">${_escDash(ref)}</td>
                 <td>
-                    <div class="font-bold">${b.full_name}</div>
-                    <small class="text-muted">${b.category}</small>
+                    <div class="font-bold">${name}</div>
+                    <small class="text-muted">${_escDash(b.date || '')}</small>
                 </td>
                 <td>
-                    <strong class="text-slate-700">Floor ${room ? room.floor_no : '?'}</strong><br>
-                    <small class="text-muted">Room ${room ? room.room_no : '?'} | Bed ${bed ? bed.bed_no : '?'}</small>
+                    <small class="text-muted">${svc}${(b.service || '').length > 80 ? '…' : ''}</small>
                 </td>
                 <td>
-                    <span class="badge badge-${b.payment_status.toLowerCase()}">${b.payment_status}</span>
+                    <span class="badge badge-${pay}">${_escDash(b.payment_status || '')}</span>
                 </td>
                 <td class="text-right">
                     <div class="actions-flex">
                         ${hasReceipt ? `
-                            <button onclick="AdminLogic.openReceiptModal('${b.id}')" class="btn-action btn-history" style="font-size:0.75rem;" title="Verify Payment Image">
+                            <a href="${encodeURI(b.receipt_path)}" target="_blank" rel="noopener" class="btn-action btn-history" style="font-size:0.75rem;" title="Receipt">
                                 <i class="fas fa-image"></i> Receipt
-                            </button>
+                            </a>
                         ` : ''}
-                        ${b.payment_status === 'Pending' ? `
-                            <button onclick="AdminLogic.openPaymentModal(${b.id}, '${b.full_name}')" class="btn-action btn-confirm">
-                                <i class="fas fa-check"></i>
-                            </button>
-                        ` : `
-                            <button onclick="AdminLogic.openPaymentModal(${b.id}, '${b.full_name}')" class="btn-action btn-confirm">
-                                <i class="fas fa-hand-holding-usd"></i>
-                            </button>
-                        `}
+                        <a href="bookings.html" class="btn-action btn-confirm" style="font-size:0.75rem;">
+                            <i class="fas fa-list"></i> Manage
+                        </a>
                     </div>
                 </td>
             </tr>`;
@@ -120,22 +146,39 @@ const AdminLogic = {
         modal.style.display = 'flex';
     },
 
-    handlePaymentSubmit(e) {
+    async handlePaymentSubmit(e) {
         e.preventDefault();
         const id = document.getElementById('pay_booking_id').value;
         const form = e.target;
         const amount = form.querySelector('[name="amount"]').value;
         const nextDue = document.getElementById('pay_next_due').value;
 
-        if (DormState.processPayment(id, amount, 'Cash (Dashboard)', nextDue)) {
-            this.closeModal('paymentModal');
-            this.initDashboard();
-            // Show toast
+        const toastOk = () => {
             const toast = document.createElement('div');
             toast.className = 'flash-toast success';
             toast.innerHTML = '<i class="fas fa-hand-holding-usd"></i> Rent payment recorded successfully.';
             document.body.appendChild(toast);
             setTimeout(() => toast.remove(), 4000);
+        };
+
+        try {
+            if (typeof window.supabaseReady !== 'undefined' && window.DormSupabaseData) {
+                await window.supabaseReady;
+                await DormSupabaseData.recordRentPayment(id, amount, nextDue);
+                this.closeModal('paymentModal');
+                await this.initDashboard();
+                toastOk();
+                return;
+            }
+        } catch (err) {
+            alert(err.message || String(err));
+            return;
+        }
+
+        if (DormState.processPayment(id, amount, 'Cash (Dashboard)', nextDue)) {
+            this.closeModal('paymentModal');
+            this.initDashboard();
+            toastOk();
         }
     },
 

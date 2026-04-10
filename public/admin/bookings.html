@@ -112,16 +112,36 @@
     </div>
 
     <!-- Scripts -->
+    <script src="../assets/js/supabase-config.js"></script>
+    <script src="../assets/js/supabase.js"></script>
+    <script src="../assets/js/dorm-supabase-data.js"></script>
     <script src="../assets/js/state.js"></script>
     <script src="../assets/js/admin-components.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             AdminComponents.renderSidebar('bookings');
             AdminComponents.renderMobileHeader('Bookings');
-            renderBookings();
+            try {
+                await window.supabaseReady;
+                await renderBookings();
+                document.getElementById('overdueCount').textContent = '0';
+                document.getElementById('trashCount').textContent = '0';
+                DormSupabaseData.subscribeBookings(function () { renderBookings(); }).catch(function () {});
+            } catch (e) {
+                console.error(e);
+                document.getElementById('bookingsBody').innerHTML =
+                    '<tr><td colspan="5" class="text-center py-12 text-danger">Supabase not configured. Edit public/assets/js/supabase-config.js</td></tr>';
+            }
         });
 
         let currentFilter = 'all';
+
+        function esc(s) {
+            return String(s == null ? '' : s)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        }
 
         async function renderBookings() {
             const tbody = document.getElementById('bookingsBody');
@@ -129,11 +149,9 @@
 
             let bookings = [];
             try {
-                const res = await fetch(`/api/admin_bookings?filter=${encodeURIComponent(currentFilter)}`);
-                const data = await res.json();
-                if (data.success && Array.isArray(data.bookings)) {
-                    bookings = data.bookings;
-                }
+                await window.supabaseReady;
+                const filterKey = currentFilter === 'all' ? 'all' : currentFilter;
+                bookings = await DormSupabaseData.fetchBookings(filterKey);
             } catch (e) {
                 tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-danger">Failed to load bookings.</td></tr>`;
                 return;
@@ -142,11 +160,11 @@
             document.getElementById('trashTip').style.display = (currentFilter === 'archive') ? 'block' : 'none';
 
             if (bookings.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">No ${currentFilter === 'archive' ? 'archived' : 'active'} records found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-12 text-muted">No ${currentFilter === 'archive' ? 'archived' : ''} records found.</td></tr>`;
                 return;
             }
 
-            tbody.innerHTML = bookings.reverse().map(b => {
+            tbody.innerHTML = bookings.map(b => {
                 const isPending = b.payment_status === 'Pending';
                 const isActive = b.booking_status === 'Active' && b.payment_status === 'Confirmed';
                 const isArchived = currentFilter === 'archive';
@@ -154,40 +172,42 @@
                 const now = new Date();
                 const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
                 const isOverdue = b.booking_status === 'Active' && b.payment_status === 'Confirmed' && b.due_date && b.due_date < today;
+                const svc = (b.service || '').slice(0, 140);
+                const payBadge = (b.payment_status || 'pending').toLowerCase().replace(/[^a-z0-9]/g, '') || 'pending';
 
                 return `
                 <tr>
                     <td>
-                        <div class="font-bold" style="color:#1e293b;">${b.full_name}</div>
-                        <small class="text-muted font-bold">${b.category} &middot; <span class="font-mono">${b.contact_number}</span></small>
+                        <div class="font-bold" style="color:#1e293b;">${esc(b.full_name)}</div>
+                        <small class="text-muted font-bold">Booking date &middot; <span class="font-mono">${esc(b.date)}</span></small>
                     </td>
                     <td>
-                        <div class="text-xs uppercase tracking-wider font-bold color-primary mb-1">${b.booking_ref}</div>
-                        <div class="text-xs font-medium">Floor ${b.floor_no || '?'} &middot; Rm ${b.room_no || '?'} &middot; Bed ${b.bed_id || '?'}</div>
+                        <div class="text-xs uppercase tracking-wider font-bold color-primary mb-1">${esc(b.booking_ref)}</div>
+                        <div class="text-xs font-medium" style="line-height:1.35;">${esc(svc)}${(b.service || '').length > 140 ? '…' : ''}</div>
                     </td>
                     <td>
                         <div style="display:flex; align-items:center; gap:5px">
-                            <span class="badge badge-${b.payment_status.toLowerCase()}">${b.payment_status}</span>
+                            <span class="badge badge-${payBadge}">${esc(b.payment_status)}</span>
                             ${isOverdue ? `<span class="badge" style="background:#fef2f2; color:#ef4444; border:1px solid #fee2e2; font-size:0.6rem;">OVERDUE</span>` : ''}
                         </div>
-                        <small class="text-xs font-bold text-slate-400 uppercase">${b.booking_status}</small>
+                        <small class="text-xs font-bold text-slate-400 uppercase">${esc(b.booking_status)}</small>
                     </td>
                     <td>
                         <div class="text-sm font-bold ${isOverdue ? 'text-danger' : 'text-slate-700'}">₱${parseFloat(b.monthly_rent || 1600).toLocaleString()}</div>
-                        <div class="text-xs ${isOverdue ? 'text-danger font-bold' : 'text-muted'}" style="margin-top:2px">Due: ${b.due_date || '—'}</div>
+                        <div class="text-xs ${isOverdue ? 'text-danger font-bold' : 'text-muted'}" style="margin-top:2px">Due: ${esc(b.due_date || '—')}</div>
                     </td>
                     <td class="text-right">
                         <div class="actions-flex">
                             ${isArchived ? `
-                                <button onclick="handleRestore(${b.id})" class="btn-action btn-restore" title="Restore to Active List" disabled>
+                                <button onclick="handleRestore(${b.id})" class="btn-action btn-restore" title="Restore to pending">
                                     <i class="fas fa-undo"></i> Restore
                                 </button>
-                                <button onclick="handlePermanentDelete(${b.id})" class="btn-action btn-danger" title="Permanently Delete" disabled>
+                                <button onclick="handlePermanentDelete(${b.id})" class="btn-action btn-danger" title="Permanently Delete">
                                     <i class="fas fa-times"></i>
                                 </button>
                             ` : `
                                 ${hasReceipt ? `
-                                    <button onclick="openReceipt('${b.id}', '${b.receipt_path || ''}')" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
+                                    <button onclick="openReceipt(${JSON.stringify(b.receipt_path)})" class="btn-action btn-history" style="background:var(--primary); color:white; border-color:var(--primary);" title="Verify Payment Image">
                                         <i class="fas fa-image"></i> Receipt
                                     </button>
                                 ` : ''}
@@ -198,7 +218,7 @@
                                 ` : ''}
                                 
                                 ${isActive ? `
-                                    <button onclick="openPayment(${b.id}, '${b.full_name}')" class="btn-action btn-confirm" title="Log Rent Payment"><i class="fas fa-hand-holding-usd"></i> Rent</button>
+                                    <button onclick="openPayment(${b.id}, ${JSON.stringify(b.full_name)})" class="btn-action btn-confirm" title="Log Rent Payment"><i class="fas fa-hand-holding-usd"></i> Rent</button>
                                     <button onclick="handleCheckout(${b.id})" class="btn-action btn-history" style="background:#f1f5f9; color:#334155;" title="Resident Move Out"><i class="fas fa-sign-out-alt"></i> Out</button>
                                 ` : ''}
 
@@ -232,48 +252,59 @@
 
         async function handleAccept(id) {
             if (!confirm('Confirm this reservation?')) return;
-            await fetch('/api/admin_bookings?action=accept', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            renderBookings();
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.acceptBooking(id);
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
 
         async function handleDecline(id) {
             if (!confirm('Decline and cancel this booking?')) return;
-            await fetch('/api/admin_bookings?action=decline', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            renderBookings();
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.declineBooking(id);
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
 
         async function handleCheckout(id) {
             if (!confirm('Mark resident as completed and free the bed?')) return;
-            await fetch('/api/admin_bookings?action=checkout', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id })
-            });
-            renderBookings();
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.checkoutBooking(id);
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
 
-        function handleDelete(id) {
-            // No hard delete API yet; keep as no-op to avoid accidental data loss.
-            alert('Archive is not enabled for Supabase-backed bookings yet.');
+        async function handleDelete(id) {
+            if (!confirm('Archive this booking?')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.archiveBooking(id);
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
         
-        function handleRestore(id) {
-            alert('Restore is not enabled for Supabase-backed bookings yet.');
+        async function handleRestore(id) {
+            if (!confirm('Restore this booking to pending?')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.updateBookingStatus(id, 'pending');
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
 
-        function handlePermanentDelete(id) {
-            alert('Permanent delete is not enabled for Supabase-backed bookings yet.');
+        async function handlePermanentDelete(id) {
+            if (!confirm('Permanently delete this record?')) return;
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.deleteBooking(id);
+                await renderBookings();
+            } catch (e) { alert(e.message || String(e)); }
         }
 
-        function openReceipt(id, receiptPath) {
+        function openReceipt(receiptPath) {
             const img = document.getElementById('receiptImg');
             const msg = document.getElementById('noReceiptMsg');
             
@@ -305,13 +336,12 @@
             const id = document.getElementById('pay_id').value;
             const amt = document.getElementById('pay_amount').value;
             const due = document.getElementById('pay_due').value;
-            await fetch('/api/admin_bookings?action=payment', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, amount: amt, next_due: due, method: 'Manual (Admin)' })
-            });
-            closeModal('paymentModal');
-            renderBookings();
+            try {
+                await window.supabaseReady;
+                await DormSupabaseData.recordRentPayment(id, amt, due);
+                closeModal('paymentModal');
+                await renderBookings();
+            } catch (err) { alert(err.message || String(err)); }
         }
     </script>
 </body>

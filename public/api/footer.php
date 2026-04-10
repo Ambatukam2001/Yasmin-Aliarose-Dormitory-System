@@ -5,7 +5,7 @@
         <div style="display:flex;justify-content:center;gap:2.5rem;flex-wrap:wrap;margin-bottom:2.5rem;">
             <a href="index.html#overview" style="color:#cbd5e1;font-size:0.9rem;font-weight:500;text-decoration:none;transition:color 0.3s;" onmouseover="this.style.color='#34d399'" onmouseout="this.style.color='#cbd5e1'">Overview</a>
             <a href="index.html#gallery"  style="color:#cbd5e1;font-size:0.9rem;font-weight:500;text-decoration:none;transition:color 0.3s;" onmouseover="this.style.color='#34d399'" onmouseout="this.style.color='#cbd5e1'">Gallery</a>
-            <a href="booking.php"        style="color:#cbd5e1;font-size:0.9rem;font-weight:500;text-decoration:none;transition:color 0.3s;" onmouseover="this.style.color='#34d399'" onmouseout="this.style.color='#cbd5e1'">Bookings</a>
+            <a href="booking.html"        style="color:#cbd5e1;font-size:0.9rem;font-weight:500;text-decoration:none;transition:color 0.3s;" onmouseover="this.style.color='#34d399'" onmouseout="this.style.color='#cbd5e1'">Bookings</a>
             <a href="login.php"          style="color:#cbd5e1;font-size:0.9rem;font-weight:500;text-decoration:none;transition:color 0.3s;" onmouseover="this.style.color='#34d399'" onmouseout="this.style.color='#cbd5e1'">Admin Login</a>
         </div>
         <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:1.5rem;font-size:0.85rem;color:#64748b;">

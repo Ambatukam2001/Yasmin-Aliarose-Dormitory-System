@@ -13,22 +13,19 @@ async function openHistory(bookingId, name) {
     if (content) content.innerHTML = '<div class="text-center p-4"><i class="fas fa-spinner fa-spin"></i> Loading...</div>';
     
     try {
-        const res = await fetch('/api/admin_payments?booking_id=' + bookingId);
-        const payments = await res.json();
-        
-        if (payments.length === 0) {
-            content.innerHTML = '<div class="empty-state text-muted text-center p-4">No payment records found.</div>';
+        if (typeof window.supabaseReady === 'undefined' || !window.dormSupabase) {
+            content.innerHTML = '<div class="empty-state text-muted text-center p-4">Open <a href="bookings.html" class="color-primary font-bold">bookings.html</a> for live Supabase data.</div>';
             return;
         }
-        
-        let html = '<table class="data-table"><thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Receipt</th></tr></thead><tbody>';
-        payments.forEach(p => {
-            const receipt = p.receipt_path ? `<a href="../${p.receipt_path}" target="_blank" class="color-primary"><i class="fas fa-image"></i> View</a>` : '<span class="text-muted">None</span>';
-            const date = new Date(p.payment_date).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-            html += `<tr><td>${date}</td><td class="font-bold">₱${parseFloat(p.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td><td>${p.payment_method}</td><td>${receipt}</td></tr>`;
-        });
-        html += '</tbody></table>' + `<div class="mt-4 text-right"><button onclick="window.print()" class="btn btn-outline btn-sm"><i class="fas fa-print"></i> Print Report</button></div>`;
-        content.innerHTML = html;
+        await window.supabaseReady;
+        const { data, error } = await window.dormSupabase.from('bookings').select('service, date, name').eq('id', bookingId).maybeSingle();
+        if (error) throw error;
+        if (!data) {
+            content.innerHTML = '<div class="empty-state text-muted text-center p-4">Booking not found.</div>';
+            return;
+        }
+        const svc = (data.service || '').replace(/</g, '&lt;');
+        content.innerHTML = '<div class="p-3 text-sm" style="line-height:1.5;"><strong>' + (data.name || '') + '</strong><br><span class="text-muted">' + (data.date || '') + '</span><pre style="margin-top:0.75rem;white-space:pre-wrap;font-family:inherit;">' + svc + '</pre></div>';
     } catch(e) { content.innerHTML = '<div class="error-state p-4">Error loading history.</div>'; }
 }
 

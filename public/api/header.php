@@ -372,7 +372,7 @@
                 </li>
                 <li><a href="index.html#overview" onclick="toggleMenu()">Overview</a></li>
                 <li><a href="index.html#gallery" onclick="toggleMenu()">Gallery</a></li>
-                <li><a href="booking.php">Book Now</a></li>
+                <li><a href="booking.html">Book Now</a></li>
                 <li><a href="index.html#benefits" onclick="toggleMenu()">Benefits</a></li>
                 <li><a href="index.html#rules" onclick="toggleMenu()">Rules</a></li>
             </ul>
@@ -381,7 +381,7 @@
         <div class="header-right">
             <div class="auth-buttons">
                 <a href="login.php" class="btn btn-outline">Admin Login</a>
-                <a href="booking.php" class="btn btn-primary">Book Now</a>
+                <a href="booking.html" class="btn btn-primary">Book Now</a>
             </div>
             
             <label class="theme-switch-pill" style="margin: 0 0.5rem;">

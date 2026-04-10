@@ -335,9 +335,9 @@ async function loadBeds(roomId) {
     const grid = document.getElementById('bkBedGrid');
     grid.innerHTML = '<div class="bk-bed-loading"><i class="fas fa-spinner fa-spin"></i> Loading beds…</div>';
     try {
-        const res = await fetch(`/api/room_api?action=room_beds&room_id=${roomId}`);
-        const beds = await res.json();
-        renderBeds(beds);
+        await window.supabaseReady;
+        const beds = await window.DormSupabaseData.fetchRoomBeds(roomId);
+        renderBeds(Array.isArray(beds) ? beds : []);
     } catch (e) {
         grid.innerHTML = `<p class="bk-bed-error"><i class="fas fa-exclamation-circle"></i> Failed to load beds (${e.message}).</p>`;
     }
@@ -545,41 +545,53 @@ async function submitBooking() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting…';
 
-    const formData = new FormData();
-    formData.append('bed_id', _selectedBedId);
-    formData.append('full_name', document.getElementById('bkFullName').value.trim());
-    formData.append('category', document.getElementById('bkCategory').value);
-    formData.append('school_name', document.getElementById('bkSchool').value.trim());
-    formData.append('contact_number', document.getElementById('bkContact').value.trim());
-    formData.append('guardian_name', document.getElementById('bkGuardian').value.trim());
-    formData.append('guardian_contact', document.getElementById('bkGuardianContact').value.trim());
-    formData.append('payment_method', _payMethod);
-    
-    if (_receiptFile) {
-        formData.append('receipt', _receiptFile);
-    }
-
     try {
-        const response = await fetch('/api/submit_booking', {
-            method: 'POST',
-            body: formData
-        });
-        const result = await response.json();
+        await window.supabaseReady;
+        const DS = window.DormSupabaseData;
 
-        if (result.success) {
-            document.getElementById('bkRefCode').textContent = result.booking_ref;
-            showPanel('bkStepSuccess');
-            
-            // Refresh main page view if functions exist
-            if (typeof updateBadges === 'function') updateBadges();
-            if (typeof loadRooms === 'function') loadRooms(_floorNo);
-        } else {
-            alert(result.message || 'Submission failed. Please try again.');
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-check"></i> Confirm Booking';
+        let service = DS.buildBookingService({
+            bedId: _selectedBedId,
+            roomNo: _roomNo,
+            floorNo: _floorNo,
+            category: document.getElementById('bkCategory').value,
+            school: document.getElementById('bkSchool').value.trim(),
+            contact: document.getElementById('bkContact').value.trim(),
+            guardian: document.getElementById('bkGuardian').value.trim(),
+            guardianContact: document.getElementById('bkGuardianContact').value.trim(),
+            paymentMethod: _payMethod,
+        });
+
+        if (_receiptFile && _payMethod === 'GCash Online') {
+            const url = await DS.uploadReceiptIfAny(_receiptFile);
+            service = DS.appendReceiptToService(service, url);
         }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const name = document.getElementById('bkFullName').value.trim();
+
+        const row = await DS.insertBooking({
+            name,
+            service,
+            date: today,
+            status: 'pending',
+        });
+
+        try {
+            await DS.reserveBed(_selectedBedId);
+        } catch (bedErr) {
+            try {
+                await DS.deleteBooking(row.id);
+            } catch (_) {}
+            throw bedErr;
+        }
+
+        document.getElementById('bkRefCode').textContent = 'BK-' + row.id;
+        showPanel('bkStepSuccess');
+
+        if (typeof updateBadges === 'function') updateBadges();
+        if (typeof loadRooms === 'function') loadRooms(_floorNo);
     } catch (e) {
-        alert(`Error: ${e.message}`);
+        alert('Error: ' + (e && e.message ? e.message : String(e)));
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-check"></i> Confirm Booking';
     }

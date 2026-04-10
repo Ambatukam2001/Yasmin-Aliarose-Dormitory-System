@@ -112,31 +112,30 @@
     </div>
 
     <!-- Scripts -->
+    <script src="../assets/js/supabase-config.js"></script>
+    <script src="../assets/js/supabase.js"></script>
+    <script src="../assets/js/dorm-supabase-data.js"></script>
     <script src="../assets/js/state.js"></script>
     <script src="../assets/js/admin-components.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             AdminComponents.renderSidebar('rooms');
             AdminComponents.renderMobileHeader('Manage Rooms');
-            // Replace localStorage/seed data with real DB data.
             syncFromSupabase().then(() => renderAll());
         });
 
         async function syncFromSupabase() {
             const floors = [2, 3, 4];
+            const DS = window.DormSupabaseData;
             try {
-                const roomResArr = await Promise.all(
-                    floors.map(f => fetch(`/api/room_api?action=floor_rooms&floor_no=${f}`).then(r => r.json()))
-                );
-
+                await window.supabaseReady;
+                const roomResArr = await Promise.all(floors.map(f => DS.fetchFloorRooms(f)));
                 const rooms = roomResArr.flat();
                 const beds = [];
 
-                // Fetch beds per room.
                 for (const r of rooms) {
-                    const bRes = await fetch(`/api/room_api?action=room_beds&room_id=${r.id}`);
-                    const roomBeds = await bRes.json();
-                    roomBeds.forEach(b => beds.push({
+                    const roomBeds = await DS.fetchRoomBeds(r.id);
+                    (roomBeds || []).forEach(b => beds.push({
                         id: b.id,
                         room_id: b.room_id,
                         bed_no: b.bed_no,
@@ -156,13 +155,12 @@
                 DormState.data.beds = beds;
                 DormState.save();
             } catch (e) {
-                // If DB sync fails, we keep whatever seed/localStorage data exists.
                 console.error('Supabase sync failed:', e);
                 if (window.Swal) {
                     Swal.fire({
                         icon: 'error',
                         title: 'Room sync failed',
-                        text: 'Could not load rooms from the database. Please refresh.'
+                        text: (e && e.message) ? e.message : 'Could not load rooms. Set supabase-config.js and run supabase_schema.sql.'
                     });
                 }
             }
@@ -306,9 +304,6 @@
             }
         };
 
-        // Standard function definitions for other logic
-        function getFloorLabel(n) { return n + (n==2?'nd':n==3?'rd':'th') + " Floor"; }
-
         async function handleAddRoom(e) {
             e.preventDefault();
             const name = document.getElementById('add_room_name').value.trim();
@@ -329,13 +324,8 @@
             }
 
             try {
-                const res = await fetch('/api/admin_rooms?action=add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_no: name, floor_no: f, beds_count: b })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.message || 'Failed to add room.');
+                await window.supabaseReady;
+                await DormSupabaseData.addRoomWithBeds(name, f, b);
 
                 await syncFromSupabase();
                 renderAll();
@@ -359,13 +349,8 @@
         async function handleDeleteRoom(id) {
             if (!confirm('Delete room?')) return;
             try {
-                const res = await fetch('/api/admin_rooms?action=delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: id })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.message || 'Failed to delete room.');
+                await window.supabaseReady;
+                await DormSupabaseData.deleteRoom(id);
                 await syncFromSupabase();
                 renderAll();
             } catch (e) {
@@ -375,13 +360,8 @@
 
         async function handleAddBed(id) {
             try {
-                const res = await fetch('/api/admin_beds?action=add', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_id: id })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.message || 'Failed to add bed.');
+                await window.supabaseReady;
+                await DormSupabaseData.addBedToRoom(id);
                 await syncFromSupabase();
                 renderAll();
                 setTimeout(() => toggleBeds(id), 0);
@@ -393,13 +373,8 @@
         async function handleDeleteBed(id) {
             if (!confirm('Delete bed?')) return;
             try {
-                const res = await fetch('/api/admin_beds?action=delete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bed_id: id })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.message || 'Failed to delete bed.');
+                await window.supabaseReady;
+                await DormSupabaseData.deleteBed(id);
                 await syncFromSupabase();
                 renderAll();
             } catch (e) {
@@ -409,13 +384,8 @@
 
         async function handleToggleBed(id, stat) {
             try {
-                const res = await fetch('/api/admin_beds?action=toggle', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bed_id: id, status: stat })
-                });
-                const data = await res.json();
-                if (!data.success) throw new Error(data.message || 'Failed to update bed.');
+                await window.supabaseReady;
+                await DormSupabaseData.toggleBedStatus(id, stat);
                 await syncFromSupabase();
                 renderAll();
             } catch (e) {
