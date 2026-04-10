@@ -1,19 +1,22 @@
-# Yasmin & Aliarose Dormitory Management System
+<div align="center">
 
-This project has been restructured to follow standard secure directory architecture. 
+🏠  
+# YADORM  
+### Yasmin & Aliarose Dormitory Management System
 
-## Directory Architecture:
-- **/public:** Publicly accessible files (HTML, PHP frontend, JS, CSS, images, user uploads). Serve web traffic from this directory!
-- **/private:** Restricted files, backups, logs, and sensitive materials. Not accessible from the web.
-- **/config:** Configuration files. Contains `config.env` where database credentials and site-wide constants are stored securely.
-- **/temp:** Temporary files requiring cleanup.
-- **/scripts:** Automation and miscellaneous utility scripts.
+---
 
-## Database
-The system automatically reads database configuration from `config/config.env`. Ensure your XAMPP MySQL has a database named `dormitory_db` and your root user password is configured in the `.env` file correctly. The database schema backup can be found in `private/backups/db.sql`.
+A modern booking and dormitory management platform powered by Supabase
 
-## Accessing the Project
-Since everything public corresponds to the `public/` directory, open your browser and navigate to:
-**yadorm.vercel.app**
+</div>
 
-Enjoy the organized and bug-free system!
+<h1> Yasmin & Aliarose Dormitory Management System </h1>1
+<h6> _____________________________________________</h6>
+
+This system is a modern web-based dormitory management and booking platform designed to handle client reservations, services, and administrative records in an organized and efficient way. It provides a smooth and user-friendly interface for users to submit bookings while allowing administrators to manage and monitor all data in real time.
+
+The project is built using HTML, Tailwind CSS, and JavaScript for the frontend, ensuring a responsive and modern design. Instead of a traditional backend server, the system uses Supabase as its cloud database, enabling real-time data synchronization, secure storage, and simplified backend management without the need for npm or a custom server.
+
+All data such as bookings, users, and services are directly connected to Supabase, ensuring fast and reliable updates across the system. The platform is deployed using Vercel, making it accessible online and easy to maintain.
+
+This system focuses on simplicity, performance, and scalability, providing a complete digital solution for dormitory management and client booking operations.
