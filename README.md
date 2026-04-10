@@ -3,7 +3,7 @@
 
 <h1>🏠 YADORM</h1>
 
-<h3>Yasmin & Aliarose Dormitory Management System</h3>
+<h2>Yasmin & Aliarose Dormitory Management System</h2>
 
 <p>
 A modern booking and dormitory management system powered by <b>Supabase</b>, built for fast, simple, and efficient reservation handling.
