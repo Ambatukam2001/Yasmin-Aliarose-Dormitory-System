@@ -1,0 +1,22 @@
+{
+  "name": "Yasmin and Aliarose Dormitory",
+  "short_name": "Yadorm",
+  "description": "Booking System",
+  "start_url": "/portfolio/index.html",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#38bdf8",
+  "icons": [
+    {
+      "src": "assets/images/adel.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/images/adel.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
