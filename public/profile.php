@@ -1181,17 +1181,17 @@ include 'api/header.php';
                 </div>
             </div>
 
-            <div id="paymentFormArea" style="max-height:0; overflow:hidden; transition:0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity:0; margin-top:2rem;">
+            <div id="paymentFormArea" style="display:none; opacity:0; margin-top:1.5rem; transition: opacity 0.3s ease;">
                 <div class="form-group" style="margin-bottom: 2rem; display:flex; flex-direction:column; align-items:center; text-align:center;">
                     <label style="font-family:'Outfit'; font-size: 0.8rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem;">Upload Payment Proof <span style="color:red">*</span></label>
-                    <div onclick="document.getElementById('receiptFile').click()" class="receipt-upload-box" style="width:100%; max-width:320px; border:2px dashed rgba(16,185,129,0.3); background:rgba(16,185,129,0.02); padding:2rem; border-radius:1.5rem; cursor:pointer; transition:0.3s transition;">
+                    <div onclick="document.getElementById('receiptFile').click()" class="receipt-upload-box" style="width:100%; max-width:320px; border:2px dashed rgba(16,185,129,0.3); background:rgba(16,185,129,0.02); padding:2rem; border-radius:1.5rem; cursor:pointer; transition:0.3s;">
                         <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 1rem; opacity: 0.8;"></i>
                         <p id="fileNameDisplay" style="margin:0; font-family:'Outfit'; font-size:0.95rem; color:var(--text-main); font-weight:700;">Click to select receipt</p>
                         <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">Format: JPG, PNG • Max 5MB</p>
-                        <input type="file" id="receiptFile" hidden accept="image/*" onchange="updateFileName(this)">
+                        <input type="file" id="receiptFile" name="receipt" hidden accept="image/*" onchange="updateFileName(this)">
                     </div>
                 </div>
-                <div class="helper-note" style="display:flex; justify-content:center; gap:0.5rem; background:rgba(16,185,129,0.05); padding:1rem; border-radius:1rem; color:#065f46; font-size:0.8rem; font-weight:600;">
+                <div class="helper-note" style="display:flex; justify-content:center; gap:0.5rem; background:rgba(16,185,129,0.05); padding:1rem; border-radius:1rem; color:#065f46; font-size:0.8rem; font-weight:600; margin-bottom:1.5rem;">
                     <i class="fas fa-shield-alt" style="margin-top:2px;"></i>
                     <span style="line-height:1.4; text-align:center;">Admin will verify your transfer within 24 hours.</span>
                 </div>
@@ -1259,7 +1259,10 @@ include 'api/header.php';
         // Reset Modal
         document.querySelectorAll('.pay-opt-card').forEach(c => c.classList.remove('active'));
         const formArea = document.getElementById('paymentFormArea');
-        if(formArea) formArea.classList.remove('show');
+        if(formArea) {
+            formArea.style.display = 'none';
+            formArea.style.opacity = '0';
+        }
         
         const btn = document.getElementById('btnConfirmPay');
         if(btn) btn.style.display = 'none';
@@ -1301,12 +1304,19 @@ include 'api/header.php';
         _activePayMethod = method;
         document.querySelectorAll('.pay-opt-card').forEach(c => c.classList.remove('active'));
         
+        const formArea = document.getElementById('paymentFormArea');
         if (method === 'GCash') {
             document.getElementById('optGcash').classList.add('active');
-            document.getElementById('paymentFormArea').classList.add('show');
+            if(formArea) {
+                formArea.style.display = 'block';
+                formArea.style.opacity = '1';
+            }
         } else {
             document.getElementById('optCash').classList.add('active');
-            document.getElementById('paymentFormArea').classList.remove('show');
+            if(formArea) {
+                formArea.style.display = 'none';
+                formArea.style.opacity = '0';
+            }
         }
         
         document.getElementById('btnConfirmPay').style.display = 'block';
