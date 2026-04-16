@@ -21,16 +21,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = "Password must be at least 6 characters long.";
     } else {
         $stmt = $conn->prepare("SELECT password FROM $table WHERE id = ?");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $user = $result->fetch_assoc();
+        $stmt->execute([$user_id]);
+        $user = $stmt->fetch();
 
         if ($user && password_verify($old_pass, $user['password'])) {
             $new_hash = password_hash($new_pass, PASSWORD_DEFAULT);
             $stmt_up = $conn->prepare("UPDATE $table SET password = ? WHERE id = ?");
-            $stmt_up->bind_param("si", $new_hash, $user_id);
-            if ($stmt_up->execute()) {
+            if ($stmt_up->execute([$new_hash, $user_id])) {
                 $success = "Password changed successfully!";
             } else {
                 $error = "Error updating password. Try again.";

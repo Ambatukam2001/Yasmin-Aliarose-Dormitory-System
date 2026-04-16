@@ -19,9 +19,8 @@ if ($action === 'admin_login') {
     $password = $_POST['password'] ?? '';
     
     $stmt = $conn->prepare("SELECT * FROM admins WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $admin = $stmt->get_result()->fetch_assoc();
+    $stmt->execute([$username]);
+    $admin = $stmt->fetch();
 
     if ($admin && password_verify($password, $admin['password'])) {
         $_SESSION['admin_id'] = $admin['id'];

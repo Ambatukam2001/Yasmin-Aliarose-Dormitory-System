@@ -14,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $booking_id = intval($_POST['booking_id'] ?? 0);
-$method = $conn->real_escape_string($_POST['method'] ?? '');
-$user_id = $_SESSION['user_id'];
+$method     = trim($_POST['method'] ?? '');
+$user_id    = $_SESSION['user_id'];
 
 if (!$booking_id || !$method) {
     echo json_encode(['success' => false, 'message' => 'Missing data']);
@@ -28,8 +28,8 @@ if ($method === 'GCash' && isset($_FILES['receipt'])) {
     $target_dir = "../uploads/receipts/";
     if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
     
-    $file_ext = strtolower(pathinfo($_FILES["receipt"]["name"], PATHINFO_EXTENSION));
-    $file_name = "pay_" . time() . "_" . $user_id . "." . $file_ext;
+    $file_ext   = strtolower(pathinfo($_FILES["receipt"]["name"], PATHINFO_EXTENSION));
+    $file_name  = "pay_" . time() . "_" . $user_id . "." . $file_ext;
     $target_file = $target_dir . $file_name;
     
     if (move_uploaded_file($_FILES["receipt"]["tmp_name"], $target_file)) {
@@ -41,13 +41,11 @@ if ($method === 'GCash' && isset($_FILES['receipt'])) {
 }
 
 // Log into payments table with 'Pending' note
-$stmt = $conn->prepare("INSERT INTO payments (booking_id, amount, payment_method, notes, paid_at) VALUES (?, ?, ?, ?, NOW())");
+$stmt      = $conn->prepare("INSERT INTO payments (booking_id, amount, payment_method, notes, paid_at) VALUES (?, ?, ?, ?, NOW())");
 $zero_amount = 0.00;
-$notes = ($method === 'GCash') ? "GCash Receipt: " . $receipt_path : "Cash-in Request at Admin";
+$notes     = ($method === 'GCash') ? "GCash Receipt: " . $receipt_path : "Cash-in Request at Admin";
 
-$stmt->bind_param("idss", $booking_id, $zero_amount, $method, $notes);
-
-if ($stmt->execute()) {
+if ($stmt->execute([$booking_id, $zero_amount, $method, $notes])) {
     echo json_encode(['success' => true]);
 } else {
     echo json_encode(['success' => false, 'message' => 'Database error']);

@@ -9,7 +9,7 @@ $error = "";
 $success = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $conn->real_escape_string($_POST['username']);
+    $username = trim($_POST['username']);
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
 
@@ -18,18 +18,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Check if username exists in admins or users
         $stmt = $conn->prepare("SELECT id FROM users WHERE username = ? UNION SELECT id FROM admins WHERE username = ?");
-        $stmt->bind_param("ss", $username, $username);
-        $stmt->execute();
-        $result = $stmt->get_result();
+        $stmt->execute([$username, $username]);
+        $existing = $stmt->fetch();
 
-        if ($result->num_rows > 0) {
+        if ($existing) {
             $error = "Username is already taken.";
         } else {
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             $stmt_insert = $conn->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, 'user')");
-            $stmt_insert->bind_param("ss", $username, $hashed_password);
             
-            if ($stmt_insert->execute()) {
+            if ($stmt_insert->execute([$username, $hashed_password])) {
                 $success = "Registration successful! You can now login.";
             } else {
                 $error = "Registration failed. Please try again.";

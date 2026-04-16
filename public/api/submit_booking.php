@@ -1,12 +1,6 @@
 <?php
 /**
- * api/submit_booking.php
- * Matched to actual schema:
- *   bookings: id, booking_ref, bed_id, full_name, school_name, category,
- *             contact_number, guardian_name, guardian_contact, payment_method,
- *             payment_status, booking_status, created_at, due_date,
- *             monthly_rent, current_balance, receipt_path
- *   beds:     id, room_id, floor_id, bed_no, status, reserved_at
+ * api/submit_booking.php — PDO version
  */
 ini_set('display_errors', 0);
 error_reporting(E_ALL);
@@ -20,14 +14,12 @@ set_exception_handler(function($e) {
     exit;
 });
 
-/* ── Only accept POST ───────────────────────────────────── */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     echo json_encode(['success' => false, 'message' => 'Method not allowed.']);
     exit;
 }
 
-/* ── Collect & sanitise inputs ──────────────────────────── */
 $bed_id           = intval($_POST['bed_id']           ?? 0);
 $full_name        = trim($_POST['full_name']          ?? '');
 $category         = trim($_POST['category']           ?? '');
@@ -37,7 +29,6 @@ $guardian_name    = trim($_POST['guardian_name']      ?? '');
 $guardian_contact = trim($_POST['guardian_contact']   ?? '');
 $payment_method   = trim($_POST['payment_method']     ?? '');
 
-/* ── Basic validation ───────────────────────────────────── */
 if (!$bed_id || !$full_name || !$category || !$contact_number || !$guardian_name || !$guardian_contact || !$payment_method) {
     echo json_encode(['success' => false, 'message' => 'All required fields must be filled in.']);
     exit;
@@ -52,11 +43,10 @@ if (!in_array($payment_method, ['GCash Online', 'Cash In'])) {
     exit;
 }
 
-/* ── Confirm bed is still Available ────────────────────── */
+// Confirm bed is still Available
 $check = $conn->prepare("SELECT id, status FROM beds WHERE id = ?");
-$check->bind_param("i", $bed_id);
-$check->execute();
-$bed = $check->get_result()->fetch_assoc();
+$check->execute([$bed_id]);
+$bed = $check->fetch();
 
 if (!$bed) {
     echo json_encode(['success' => false, 'message' => 'Bed not found.']);
@@ -67,7 +57,7 @@ if ($bed['status'] !== 'Available') {
     exit;
 }
 
-/* ── Handle receipt upload ──────────────────────────────── */
+// Handle receipt upload
 $receipt_path = null;
 
 if ($payment_method === 'GCash Online') {
@@ -112,43 +102,30 @@ if ($payment_method === 'GCash Online') {
     $receipt_path = 'uploads/documents/' . $filename;
 }
 
-/* ── Generate unique booking reference ──────────────────── */
+// Generate unique booking reference
 do {
     $booking_ref = 'BK-' . strtoupper(substr(md5(uniqid((string)mt_rand(), true)), 0, 8));
     $dup = $conn->prepare("SELECT id FROM bookings WHERE booking_ref = ?");
-    $dup->bind_param("s", $booking_ref);
-    $dup->execute();
-    $dup->store_result();
-} while ($dup->num_rows > 0);
+    $dup->execute([$booking_ref]);
+} while ($dup->fetch());
 
-/* ── Transaction: insert booking + mark bed Reserved ─────── */
-$conn->begin_transaction();
+// Transaction: insert booking
+$conn->beginTransaction();
 
 try {
     $user_id = $_SESSION['user_id'] ?? null;
 
-    // If user is logged in, sync booking info into user profile (single source of truth)
     if (!empty($user_id)) {
-        // Update user's basic personal info from the booking form
         $up = $conn->prepare("UPDATE users SET full_name = COALESCE(NULLIF(full_name,''), ?), phone = COALESCE(NULLIF(phone,''), ?) WHERE id = ?");
-        $up->bind_param("ssi", $full_name, $contact_number, $user_id);
-        $up->execute();
-        $up->close();
+        $up->execute([$full_name, $contact_number, $user_id]);
 
-        // Re-read user profile values and use them for booking insert
         $u = $conn->prepare("SELECT full_name, phone FROM users WHERE id = ? LIMIT 1");
-        $u->bind_param("i", $user_id);
-        $u->execute();
-        $urow = $u->get_result()->fetch_assoc();
-        $u->close();
+        $u->execute([$user_id]);
+        $urow = $u->fetch();
 
         if (!empty($urow)) {
-            if (!empty($urow['full_name'])) {
-                $full_name = $urow['full_name'];
-            }
-            if (!empty($urow['phone'])) {
-                $contact_number = $urow['phone'];
-            }
+            if (!empty($urow['full_name'])) $full_name = $urow['full_name'];
+            if (!empty($urow['phone'])) $contact_number = $urow['phone'];
         }
     }
 
@@ -167,23 +144,20 @@ try {
              'Pending', 'Pending', NOW())
     ");
 
-    $ins->bind_param(
-        "siissssssss",
+    if (!$ins->execute([
         $booking_ref, $bed_id, $user_id,
         $full_name, $category, $school_name,
         $contact_number, $guardian_name, $guardian_contact,
         $payment_method, $receipt_path
-    );
-
-    if (!$ins->execute()) {
-        throw new Exception('Insert failed: ' . $ins->error);
+    ])) {
+        throw new Exception('Insert failed');
     }
 
     $conn->commit();
     echo json_encode(['success' => true, 'booking_ref' => $booking_ref]);
 
 } catch (Exception $e) {
-    $conn->rollback();
+    $conn->rollBack();
     if ($receipt_path && file_exists(__DIR__ . '/../' . $receipt_path)) {
         unlink(__DIR__ . '/../' . $receipt_path);
     }

@@ -10,15 +10,13 @@ if (is_admin_logged_in()) {
 $error = "";
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $conn->real_escape_string($_POST['username']);
+    $username = trim($_POST['username']);
     $password = $_POST['password'];
 
     // Check Admins
     $stmt = $conn->prepare("SELECT * FROM admins WHERE username = ?");
-    $stmt->bind_param("s", $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $admin = $result->fetch_assoc();
+    $stmt->execute([$username]);
+    $admin = $stmt->fetch();
 
     if ($admin && password_verify($password, $admin['password'])) {
         $_SESSION['admin_id'] = $admin['id'];
@@ -28,10 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Check Users
         $stmt_user = $conn->prepare("SELECT * FROM users WHERE username = ?");
-        $stmt_user->bind_param("s", $username);
-        $stmt_user->execute();
-        $result_user = $stmt_user->get_result();
-        $user = $result_user->fetch_assoc();
+        $stmt_user->execute([$username]);
+        $user = $stmt_user->fetch();
 
         if ($user && password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
