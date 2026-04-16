@@ -38,10 +38,18 @@ $bookings = $conn->query("
     ORDER BY b.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-$pending_count   = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Pending'")->fetchColumn() ?: 0);
-$active_count    = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed'")->fetchColumn() ?: 0);
+// optimization: combine all stat counts into a single query
+$extra_stats = $conn->query("
+    SELECT 
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Pending') as pending_count,
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed') as active_count,
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Completed') as completed_count
+")->fetch(PDO::FETCH_ASSOC);
+
+$pending_count   = (int)$extra_stats['pending_count'];
+$active_count    = (int)$extra_stats['active_count'];
+$completed_count = (int)$extra_stats['completed_count'];
 $overdue_count   = (int)($stats['overdue_count'] ?? 0);
-$completed_count = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Completed'")->fetchColumn() ?: 0);
 
 $flash = $_GET['flash'] ?? '';
 $flash_map = [
@@ -69,12 +77,6 @@ $flash_data = $flash_map[$flash] ?? null;
     <link rel="stylesheet" href="../assets/css/admin.css">
     <style>
         /* ── Flash toast ── */
-        .flash-toast{position:fixed;top:1.5rem;right:1.5rem;z-index:9999;padding:.85rem 1.5rem;border-radius:1rem;font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:.65rem;box-shadow:0 8px 30px rgba(0,0,0,.14);animation:toastIn .35s ease,toastOut .4s ease 4s forwards;}
-        .flash-toast.success{background:#d1fae5;color:#065f46;}
-        .flash-toast.danger{background:#fee2e2;color:#991b1b;}
-        .flash-toast.info{background:#eff6ff;color:#1e40af;}
-        @keyframes toastIn{from{opacity:0;transform:translateY(-14px)}to{opacity:1;transform:translateY(0)}}
-        @keyframes toastOut{to{opacity:0;transform:translateY(-14px);pointer-events:none}}
 
         /* ── Summary bar ── */
         .summary-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1rem;margin-bottom:1.75rem;}

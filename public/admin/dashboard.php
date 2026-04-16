@@ -36,20 +36,23 @@ $floor_stats = $conn->query("
     ORDER BY r.floor_no ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// ── Chart 2: Residents by booking status
-$booking_status_stats = $conn->query("
-    SELECT booking_status, COUNT(*) as cnt 
-    FROM bookings 
-    GROUP BY booking_status
-")->fetchAll(PDO::FETCH_ASSOC);
+// optimization: combine all stat counts and chart distributions into one block
+$extra_stats = $conn->query("
+    SELECT 
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Pending') as pending_count,
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed') as active_count,
+        (SELECT COUNT(*) FROM bookings WHERE booking_status='Completed') as completed_count
+")->fetch(PDO::FETCH_ASSOC);
 
-// ── Chart 3: Payment status (paid vs unpaid active residents)
-$payment_stats = $conn->query("
-    SELECT payment_status, COUNT(*) as cnt 
-    FROM bookings 
-    WHERE booking_status = 'Active'
-    GROUP BY payment_status
-")->fetchAll(PDO::FETCH_ASSOC);
+$pending_count   = (int)$extra_stats['pending_count'];
+$active_count    = (int)$extra_stats['active_count'];
+$completed_count = (int)$extra_stats['completed_count'];
+$overdue_count   = (int)($stats['overdue_count'] ?? 0);
+
+// Get distributions for charts (1 query each is fine if they are simple)
+$booking_status_stats = $conn->query("SELECT booking_status, COUNT(*) as cnt FROM bookings GROUP BY booking_status")->fetchAll(PDO::FETCH_ASSOC);
+$payment_stats = $conn->query("SELECT payment_status, COUNT(*) as cnt FROM bookings WHERE booking_status = 'Active' GROUP BY payment_status")->fetchAll(PDO::FETCH_ASSOC);
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -64,13 +67,6 @@ $payment_stats = $conn->query("
     <link rel="stylesheet" href="../assets/css/style.css">
     <link rel="stylesheet" href="../assets/css/admin.css"> 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <style>
-        .flash-toast { position: fixed; top: 1.5rem; right: 1.5rem; z-index: 9999; padding: 1rem 1.75rem; border-radius: 1.25rem; font-weight: 700; display: flex; align-items: center; gap: 0.75rem; box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: toastIn 0.4s ease, toastOut 0.5s ease 4s forwards; }
-        .flash-toast.success { background: #d1fae5; color: #065f46; border: 1px solid #34d399; }
-        .flash-toast.danger { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-        @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes toastOut { to { opacity: 0; transform: translateY(-20px); visibility: hidden; } }
-    </style>
 </head>
 <body class="admin-page">
     <?php if ($flash_data): ?>
