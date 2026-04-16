@@ -1,4 +1,8 @@
 <?php
+// Global path handler
+$current_page = $_SERVER['PHP_SELF'];
+$base_dir = (strpos($current_page, '/admin/') !== false) ? '../' : '';
+
 require_once __DIR__ . '/db.php';
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -13,13 +17,17 @@ function is_admin_logged_in() {
 }
 
 function require_admin_auth() {
-    if (!is_admin_logged_in()) {
-        // If we're in a subdirectory (like admin/), go back up
-        $login_path = (strpos($_SERVER['PHP_SELF'], '/admin/') !== false) ? '../login.php' : 'login.php';
-        header("Location: $login_path");
-        exit;
+    if (!isset($_SESSION['admin_id'])) {
+        redirect('login.php');
     }
 }
+
+function require_user_auth() {
+    if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_id'])) {
+        redirect('login.php');
+    }
+}
+
 
 /**
  * Utility Helpers
@@ -41,7 +49,28 @@ function get_badge_class($status) {
 }
 
 function redirect($path) {
-    header("Location: $path");
+    // Build absolute URL to avoid browser treating Location as a file path
+    if (!preg_match('#^https?://#', $path)) {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+        // Find the project base (everything up to /public/)
+        $script = $_SERVER['SCRIPT_NAME'] ?? '';
+        // Determine if we're inside /admin/ subfolder
+        if (strpos($path, '../') === 0) {
+            // Caller already prefixed ../  — resolve against current dir
+            $base = rtrim(dirname($script), '/');
+            $path = ltrim(str_replace('../', '', $path), '/');
+            $base = dirname($base); // go up one level
+            $absPath = $scheme . '://' . $host . $base . '/' . $path;
+        } else {
+            // Absolute from /public/ root
+            $pubRoot = preg_replace('#/public/.*#', '/public', $script);
+            $absPath = $scheme . '://' . $host . $pubRoot . '/' . ltrim($path, '/');
+        }
+        header("Location: $absPath");
+    } else {
+        header("Location: $path");
+    }
     exit;
 }
 

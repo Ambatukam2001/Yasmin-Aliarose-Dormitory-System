@@ -10,30 +10,41 @@
        Kill admin.js conflicts the moment this
        script executes (after admin.js is done)
     ───────────────────────────────────────── */
-    window.onclick = null;
-
-    window.closeModal = function (id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.classList.remove('open');
-        el.style.removeProperty('display');
-    };
-
     /* ─────────────────────────────────────────
-       Modal helpers
+       Modal helpers (single implementation)
     ───────────────────────────────────────── */
-    function openModal(id) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.style.removeProperty('display'); /* wipe any inline display:none */
-        el.classList.add('open');
-    }
-
     function closeModal(id) {
         var el = document.getElementById(id);
         if (!el) return;
+        if (el.classList.contains('drawer-right')) {
+            el.classList.remove('open');
+            el.setAttribute('aria-hidden', 'true');
+            setTimeout(function () {
+                el.style.display = 'none';
+            }, 420);
+            return;
+        }
         el.classList.remove('open');
         el.style.removeProperty('display');
+        el.setAttribute('aria-hidden', 'true');
+    }
+
+    window.closeModal = closeModal;
+
+    function openModal(id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.style.display = 'flex';
+        el.setAttribute('aria-hidden', 'false');
+        if (el.classList.contains('drawer-right')) {
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    el.classList.add('open');
+                });
+            });
+            return;
+        }
+        el.classList.add('open');
     }
 
     /* ─────────────────────────────────────────
@@ -85,7 +96,7 @@
     ───────────────────────────────────────── */
     function showConfirm(icon, title, msg, href, btnClass, btnLabel) {
         var el;
-        el = document.getElementById('confirmIcon');  if (el) el.textContent = icon;
+        el = document.getElementById('confirmIcon');  if (el) el.innerHTML = icon;
         el = document.getElementById('confirmTitle'); if (el) el.textContent = title;
         el = document.getElementById('confirmMsg');   if (el) el.textContent = msg;
 
@@ -125,6 +136,11 @@
             }
         } else if (warn) {
             warn.classList.remove('visible');
+        }
+
+        if (payInput) {
+            payInput.value = '';
+            syncReceiptUI();
         }
 
         openModal('paymentModal');
@@ -225,12 +241,12 @@
                 var name   = btn.dataset.name || '';
                 var filter = (typeof BOOKING_FILTER !== 'undefined') ? BOOKING_FILTER : 'all';
 
-                console.log('Action clicked:', action, 'ID:', id, 'Name:', name);
+
 
                 switch (action) {
                     case 'accept':
                         showConfirm(
-                            '✅', 'Accept Booking?',
+                            '<i class="fas fa-check-circle" style="color:#10b981;"></i>', 'Accept Booking?',
                             "Accept " + name + "'s booking? Their bed will be marked Occupied and a due date will be set.",
                             'bookings.php?quick_action=accept&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(filter),
                             'cb-accept', 'Yes, Accept'
@@ -239,7 +255,7 @@
 
                     case 'decline':
                         showConfirm(
-                            '🚫', 'Decline Booking?',
+                            '<i class="fas fa-ban" style="color:#ef4444;"></i>', 'Decline Booking?',
                             "Decline " + name + "'s booking? Their bed will be freed back to Available.",
                             'bookings.php?quick_action=decline&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(filter),
                             'cb-decline', 'Yes, Decline'
@@ -248,7 +264,7 @@
 
                     case 'delete':
                         showConfirm(
-                            '🗑️', 'Delete Record?',
+                            '<i class="fas fa-trash-alt" style="color:#ef4444;"></i>', 'Delete Record?',
                             'This permanently removes the booking and all payment records. Cannot be undone.',
                             'bookings.php?action=delete&id=' + encodeURIComponent(id) + '&status=' + encodeURIComponent(filter),
                             'cb-decline', 'Delete Permanently'
@@ -257,18 +273,21 @@
 
                     case 'payment':
                         var nextBtn = btn;
-                        console.log('Opening payment modal for:', nextBtn.dataset.due, nextBtn.dataset.rate);
+                        nextBtn.classList.add('btn-rent--pulse');
+                        setTimeout(function () {
+                            nextBtn.classList.remove('btn-rent--pulse');
+                        }, 220);
                         openPaymentModal(id, name, nextBtn.dataset.due || '', parseInt(nextBtn.dataset.rate, 10) || 1500);
                         return;
 
                     case 'status':
                         var stBtn = btn;
-                        console.log('Opening status modal');
+
                         openStatusModal(id, stBtn.dataset.bstatus || '', stBtn.dataset.pstatus || '');
                         return;
 
                     case 'checkout':
-                        console.log('Opening checkout modal');
+
                         openCheckoutModal(id, name);
                         return;
 
@@ -278,11 +297,11 @@
                         if (img) img.src = btn.dataset.path || '';
                         if (ttl) ttl.textContent = 'Receipt — ' + name;
                         openModal('receiptLightbox');
-                        console.log('Receipt lightbox opened');
+
                         return;
 
                     case 'history':
-                        console.log('Opening history modal');
+
                         openHistoryModal(id, name);
                         return;
                 }
@@ -294,6 +313,7 @@
 
         /* 2. Named close buttons by ID */
         var closeMap = {
+            paymentDrawerCloseBtn: 'paymentModal',
             paymentModalClose:  'paymentModal',
             statusModalClose:   'statusModal',
             checkoutModalClose: 'checkoutModal',
@@ -368,6 +388,59 @@
     ───────────────────────────────────────── */
     if (localStorage.getItem('theme') === 'dark') {
         document.body.classList.add('dark-theme');
+    }
+
+    /* Payment drawer: receipt file UI + drag-and-drop hint */
+    var payInput = document.getElementById('pay_receipt_input');
+    var paySel = document.getElementById('payReceiptSelected');
+    var payNameEl = document.getElementById('payReceiptFileName');
+    var payClear = document.getElementById('payReceiptClear');
+    var payWrap = payInput ? payInput.closest('.admin-file-upload') : null;
+
+    function syncReceiptUI() {
+        if (!payInput || !paySel || !payNameEl) return;
+        var f = payInput.files && payInput.files[0];
+        if (f) {
+            payNameEl.textContent = f.name;
+            paySel.hidden = false;
+            if (payWrap) payWrap.classList.add('has-file');
+        } else {
+            payNameEl.textContent = '';
+            paySel.hidden = true;
+            if (payWrap) payWrap.classList.remove('has-file');
+        }
+    }
+
+    if (payInput) payInput.addEventListener('change', syncReceiptUI);
+    if (payClear) {
+        payClear.addEventListener('click', function () {
+            payInput.value = '';
+            syncReceiptUI();
+        });
+    }
+    if (payWrap && payInput) {
+        ['dragenter', 'dragover'].forEach(function (ev) {
+            payWrap.addEventListener(ev, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                payWrap.classList.add('is-dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (ev) {
+            payWrap.addEventListener(ev, function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                payWrap.classList.remove('is-dragover');
+            });
+        });
+        payWrap.addEventListener('drop', function (e) {
+            var dt = e.dataTransfer;
+            if (!dt || !dt.files || !dt.files.length) return;
+            var dOut = new DataTransfer();
+            dOut.items.add(dt.files[0]);
+            payInput.files = dOut.files;
+            syncReceiptUI();
+        });
     }
 
 }());

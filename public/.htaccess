@@ -1,0 +1,20 @@
+# Force Apache to process .php files (prevents file download)
+AddType application/x-httpd-php .php
+
+# Prevent directory listing
+Options -Indexes
+
+# Default document
+DirectoryIndex index.php index.html
+
+# Deny access to sensitive files
+<FilesMatch "\.(env|sql|log|sh|bak)$">
+    Order deny,allow
+    Deny from all
+</FilesMatch>
+
+# Friendly URLs - redirect .html requests to .php if .html doesn't exist
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)\.html$ $1.php [L,R=301]

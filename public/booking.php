@@ -1,6 +1,10 @@
 <?php 
 require_once 'api/core.php';
 $page_title = "Select Your Space";
+
+// Guests can view rooms; login required in the booking modal.
+
+include 'api/head.php';
 include 'api/header.php';
 
 // Floor stats for tab badges — uses live bed counts, not static capacity column
@@ -77,7 +81,7 @@ if ($stats_res) {
 </div>
 </main>
 
-<script src="assets/js/booking.js"></script>
+<script src="assets/js/booking.js?v=<?php echo time(); ?>"></script>
 <script>
 /* ═══════════════════════════════════════════════════════════
    FLOOR SWITCHING & ROOM CARD RENDERING

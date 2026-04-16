@@ -125,26 +125,51 @@ do {
 $conn->begin_transaction();
 
 try {
-    // bookings has no room_id column — only bed_id
-    // booking_status default is 'Active', payment_status default is 'Pending'
+    $user_id = $_SESSION['user_id'] ?? null;
+
+    // If user is logged in, sync booking info into user profile (single source of truth)
+    if (!empty($user_id)) {
+        // Update user's basic personal info from the booking form
+        $up = $conn->prepare("UPDATE users SET full_name = COALESCE(NULLIF(full_name,''), ?), phone = COALESCE(NULLIF(phone,''), ?) WHERE id = ?");
+        $up->bind_param("ssi", $full_name, $contact_number, $user_id);
+        $up->execute();
+        $up->close();
+
+        // Re-read user profile values and use them for booking insert
+        $u = $conn->prepare("SELECT full_name, phone FROM users WHERE id = ? LIMIT 1");
+        $u->bind_param("i", $user_id);
+        $u->execute();
+        $urow = $u->get_result()->fetch_assoc();
+        $u->close();
+
+        if (!empty($urow)) {
+            if (!empty($urow['full_name'])) {
+                $full_name = $urow['full_name'];
+            }
+            if (!empty($urow['phone'])) {
+                $contact_number = $urow['phone'];
+            }
+        }
+    }
+
     $ins = $conn->prepare("
         INSERT INTO bookings
-            (booking_ref, bed_id,
+            (booking_ref, bed_id, user_id,
              full_name, category, school_name,
              contact_number, guardian_name, guardian_contact,
              payment_method, receipt_path,
              booking_status, payment_status, reserve_at)
         VALUES
-            (?, ?,
+            (?, ?, ?,
              ?, ?, ?,
              ?, ?, ?,
              ?, ?,
-             'Active', 'Pending', NOW())
+             'Pending', 'Pending', NOW())
     ");
 
     $ins->bind_param(
-        "sissssssss",
-        $booking_ref, $bed_id,
+        "siissssssss",
+        $booking_ref, $bed_id, $user_id,
         $full_name, $category, $school_name,
         $contact_number, $guardian_name, $guardian_contact,
         $payment_method, $receipt_path
@@ -153,11 +178,6 @@ try {
     if (!$ins->execute()) {
         throw new Exception('Insert failed: ' . $ins->error);
     }
-
-    // Mark bed Reserved + set reserved_at timestamp
-    $upd_bed = $conn->prepare("UPDATE beds SET status = 'Reserved', reserved_at = NOW() WHERE id = ?");
-    $upd_bed->bind_param("i", $bed_id);
-    $upd_bed->execute();
 
     $conn->commit();
     echo json_encode(['success' => true, 'booking_ref' => $booking_ref]);

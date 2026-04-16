@@ -1,12 +1,24 @@
 <?php
 /**
  * api/room_api.php
- * Actions: all | floor_rooms | beds
+ * Actions: all | floors | floor_rooms | beds
  */
 require_once __DIR__ . '/core.php';
 header('Content-Type: application/json');
 
 $action = $_GET['action'] ?? '';
+
+if ($action === 'floors') {
+    $res = $conn->query("SELECT DISTINCT floor_no FROM rooms ORDER BY floor_no ASC");
+    $floors = [];
+    if ($res) {
+        while ($row = $res->fetch_assoc()) {
+            $floors[] = (int)$row['floor_no'];
+        }
+    }
+    echo json_encode($floors);
+    exit;
+}
 
 if ($action === 'all') {
     $floor_no = intval($_GET['floor_no'] ?? 2);

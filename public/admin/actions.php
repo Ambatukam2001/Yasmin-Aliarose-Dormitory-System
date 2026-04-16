@@ -70,8 +70,7 @@ if (isset($_GET['quick_action'])) {
             "SELECT bed_id, move_in_date
                FROM bookings
               WHERE id = ?
-                AND booking_status = 'Active'
-                AND payment_status = 'Pending'
+                AND booking_status = 'Pending'
               LIMIT 1"
         );
         $stmt->bind_param('i', $id);
@@ -93,7 +92,8 @@ if (isset($_GET['quick_action'])) {
         /* 3. Accept the booking */
         $stmt = $conn->prepare(
             "UPDATE bookings
-                SET payment_status = 'Confirmed',
+                SET booking_status = 'Active',
+                    payment_status = 'Confirmed',
                     due_date       = ?
               WHERE id = ?"
         );
@@ -120,7 +120,7 @@ if (isset($_GET['quick_action'])) {
 
         /* Verify booking exists */
         $stmt = $conn->prepare(
-            "SELECT id FROM bookings WHERE id = ? AND booking_status = 'Active' LIMIT 1"
+            "SELECT id FROM bookings WHERE id = ? AND booking_status = 'Pending' LIMIT 1"
         );
         $stmt->bind_param('i', $id);
         $stmt->execute();

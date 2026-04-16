@@ -90,15 +90,28 @@ document.addEventListener('click', function(e) {
 
 function closeModal(id) {
     const el = document.getElementById(id);
-    if (el) el.classList.remove('open');
-}
-
-// Global click-out to close modals
-window.onclick = function(event) {
-    if (event.target.className === 'modal-wrapper') {
-        event.target.style.display = "none";
+    if (el) {
+        el.classList.remove('open');
+        el.style.removeProperty('display');
     }
 }
+
+// Close modal when clicking the backdrop (avoid window.onclick — bookings.js loads after this)
+document.addEventListener('click', function (event) {
+    const t = event.target;
+    if (!t || !t.classList || !t.classList.contains('modal-wrapper') || !t.classList.contains('open')) {
+        return;
+    }
+    if (t.classList.contains('drawer-right')) {
+        t.classList.remove('open');
+        setTimeout(function () {
+            t.style.display = 'none';
+        }, 420);
+        return;
+    }
+    t.classList.remove('open');
+    t.style.removeProperty('display');
+});
 
 // Global Theme Handler
 function toggleTheme() {

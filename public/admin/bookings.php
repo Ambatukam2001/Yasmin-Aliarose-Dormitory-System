@@ -12,26 +12,28 @@ $status_filter = $_GET['status'] ?? 'all';
 $stats         = get_stats($conn);
 
 $where = match($status_filter) {
-    'pending'   => " WHERE b.payment_status='Pending' AND b.booking_status='Active'",
-    'confirmed' => " WHERE b.payment_status='Confirmed' AND b.booking_status='Active'",
-    'overdue'   => " WHERE b.due_date < NOW() AND b.booking_status='Active' AND b.payment_status='Confirmed'",
+    'pending'   => " WHERE b.booking_status='Pending'",
+    'confirmed' => " WHERE b.booking_status='Active' AND b.payment_status='Confirmed'",
+    'overdue'   => " WHERE b.due_date < NOW() AND b.booking_status='Active'",
     'cancelled' => " WHERE b.booking_status='Cancelled'",
     'completed' => " WHERE b.booking_status='Completed'",
     default     => ''
 };
 $bookings = $conn->query("
     SELECT b.*, bd.bed_no, r.room_no, r.floor_no,
+           u.full_name as profile_name, u.phone as profile_phone, u.email as profile_email,
            DATEDIFF(NOW(), b.due_date) AS days_overdue,
            (SELECT COUNT(*) FROM payments p WHERE p.booking_id = b.id) AS payment_count,
            (SELECT SUM(p.amount) FROM payments p WHERE p.booking_id = b.id) AS total_paid
     FROM bookings b
     LEFT JOIN beds bd ON b.bed_id = bd.id
     LEFT JOIN rooms r ON bd.room_id = r.id
+    LEFT JOIN users u ON b.user_id = u.id
     $where
     ORDER BY b.created_at DESC
 ")->fetch_all(MYSQLI_ASSOC);
 
-$pending_count   = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE payment_status='Pending' AND booking_status='Active'")->fetch_row()[0] ?? 0);
+$pending_count   = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Pending'")->fetch_row()[0] ?? 0);
 $active_count    = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed'")->fetch_row()[0] ?? 0);
 $overdue_count   = (int)($stats['overdue_count'] ?? 0);
 $completed_count = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Completed'")->fetch_row()[0] ?? 0);
@@ -156,9 +158,11 @@ $flash_data = $flash_map[$flash] ?? null;
         .ph-notes{font-size:.72rem;color:#64748b;margin-top:.15rem;}
         .ph-total{display:flex;justify-content:space-between;font-weight:800;font-size:.88rem;padding:.75rem 0 0;margin-top:.5rem;border-top:2px solid #f1f5f9;color:#1e293b;}
 
-        /* ── Modal wrappers ── */
-        .modal-wrapper{display:none;position:fixed;inset:0;z-index:9700;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:1rem;}
+        /* ── Modal wrappers (drawer-right uses admin.css flex-end; do not force center on those) ── */
+        .modal-wrapper{display:none;position:fixed;inset:0;z-index:9700;background:rgba(15,23,42,.5);backdrop-filter:blur(4px);padding:1rem;}
         .modal-wrapper.open{display:flex;}
+        .modal-wrapper:not(.drawer-right){align-items:center;justify-content:center;}
+        .modal-wrapper.drawer-right{padding:0;align-items:stretch;justify-content:flex-end;}
         .modal-body{background:#fff;border-radius:1.25rem;padding:1.75rem;width:100%;box-shadow:0 16px 48px rgba(0,0,0,.18);}
         .max-w-500{max-width:500px;}
 
@@ -301,7 +305,7 @@ $flash_data = $flash_map[$flash] ?? null;
         <input type="text" id="residentSearch" placeholder="Search name, ref, room…" class="booking-search-input">
     </div>
 
-    <div class="table-container main-card">
+    <div class="table-container main-card table-responsive-stack">
         <table class="data-table" id="bookingsTable">
             <thead>
                 <tr>
@@ -322,8 +326,8 @@ $flash_data = $flash_map[$flash] ?? null;
                     </div>
                 </td></tr>
             <?php else: foreach ($bookings as $b):
-                $isPending   = $b['payment_status'] === 'Pending'  && $b['booking_status'] === 'Active';
-                $isActive    = $b['booking_status'] === 'Active'   && $b['payment_status'] === 'Confirmed';
+                $isPending   = ($b['booking_status'] === 'Pending');
+                $isActive    = $b['booking_status'] === 'Active';
                 $isCancelled = $b['booking_status'] === 'Cancelled';
                 $isCompleted = $b['booking_status'] === 'Completed';
                 $isDanger    = $b['due_date'] && $b['days_overdue'] > 0 && $b['booking_status'] === 'Active';
@@ -332,7 +336,9 @@ $flash_data = $flash_map[$flash] ?? null;
                 $rowClass    = $isPending ? 'row-pending' : ($isDanger ? 'row-overdue' : '');
 
                 $id        = (int)$b['id'];
-                $fnAttr    = htmlspecialchars($b['full_name'],      ENT_QUOTES);
+                $displayName = $b['profile_name'] ?: $b['full_name'];
+                $displayPhone = $b['profile_phone'] ?: $b['contact_number'];
+                $fnAttr    = htmlspecialchars($displayName,      ENT_QUOTES);
                 $duAttr    = htmlspecialchars($b['due_date'] ?? '', ENT_QUOTES);
                 $rate      = (int)($b['monthly_rate'] ?? 1500);
                 $bStatAttr = htmlspecialchars($b['booking_status'], ENT_QUOTES);
@@ -340,18 +346,23 @@ $flash_data = $flash_map[$flash] ?? null;
                 $rcptAttr  = $hasReceipt ? htmlspecialchars('../'.$b['receipt_path'], ENT_QUOTES) : '';
             ?>
             <tr class="<?php echo $rowClass; ?>">
-                <td>
-                    <div style="font-weight:800;font-size:.92rem;color:#1e293b;"><?php echo htmlspecialchars($b['full_name']); ?></div>
+                <td data-label="Resident">
+                    <div style="font-weight:800;font-size:.92rem;color:#1e293b;">
+                        <?php echo htmlspecialchars($displayName); ?>
+                        <?php if($b['user_id']): ?>
+                            <i class="fas fa-check-circle" style="color:#10b981; font-size: 0.7rem;" title="Registered User"></i>
+                        <?php endif; ?>
+                    </div>
                     <div style="font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin-top:.15rem;">
                         <?php echo htmlspecialchars($b['category']); ?>
                         <?php if (!empty($b['school_name'])): ?>&middot; <span style="color:#64748b;"><?php echo htmlspecialchars($b['school_name']); ?></span><?php endif; ?>
                     </div>
                     <div style="font-size:.7rem;color:#94a3b8;margin-top:.1rem;">
-                        <i class="fas fa-phone" style="font-size:.6rem;"></i> <?php echo htmlspecialchars($b['contact_number']); ?>
+                        <i class="fas fa-phone" style="font-size:.6rem;"></i> <?php echo htmlspecialchars($displayPhone); ?>
                     </div>
                 </td>
 
-                <td>
+                <td data-label="Room/Bed">
                     <span class="ref-mono"><?php echo htmlspecialchars($b['booking_ref']); ?></span>
                     <div style="margin-top:.3rem;font-size:.76rem;font-weight:700;color:#374151;">
                         <?php if ($b['bed_no']): ?>
@@ -367,7 +378,7 @@ $flash_data = $flash_map[$flash] ?? null;
                     </div>
                 </td>
 
-                <td>
+                <td data-label="Verification">
                     <?php if ($hasReceipt): ?>
                         <span class="receipt-chip"
                               data-action="receipt"
@@ -390,7 +401,7 @@ $flash_data = $flash_map[$flash] ?? null;
                     </span>
                 </td>
 
-                <td>
+                <td data-label="Status">
                     <span class="badge <?php echo get_badge_class($b['payment_status']); ?>">
                         <?php echo htmlspecialchars($b['payment_status']); ?>
                     </span>
@@ -404,7 +415,7 @@ $flash_data = $flash_map[$flash] ?? null;
                     <?php endif; ?>
                 </td>
 
-                <td>
+                <td data-label="Payments">
                     <?php if ($b['due_date'] && $b['due_date'] !== '0000-00-00'): ?>
                         <span class="due-chip <?php echo $isDanger ? 'danger' : ($isNearDue ? 'warning' : 'ok'); ?>">
                             <i class="fas <?php echo $isDanger ? 'fa-exclamation-circle' : ($isNearDue ? 'fa-clock' : 'fa-calendar'); ?>"></i>
@@ -420,7 +431,7 @@ $flash_data = $flash_map[$flash] ?? null;
                     <?php endif; ?>
                 </td>
 
-                <td class="text-right">
+                <td data-label="Action" class="text-right">
                     <div class="actions-flex">
                         <?php if ($isPending): ?>
                             <button class="btn-accept"
@@ -528,125 +539,156 @@ $flash_data = $flash_map[$flash] ?? null;
 <!-- ══════════════════════════════════════
      LOG RENT PAYMENT MODAL
 ══════════════════════════════════════ -->
-<div id="paymentModal" class="modal-wrapper">
-    <div class="modal-body max-w-500">
-        <h2 class="font-bold mb-4"><i class="fas fa-hand-holding-usd color-primary"></i> Log Rent Payment</h2>
-        <form method="POST" enctype="multipart/form-data" action="bookings.php">
-            <input type="hidden" name="log_payment" value="1">
-            <input type="hidden" name="booking_id" id="pay_booking_id">
-            <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
-            <p id="pay_resident_label" style="font-weight:800;color:#10b981;font-size:.95rem;margin-bottom:.75rem;"></p>
-            <div id="overdueWarning" class="due-info-bar">
-                <i class="fas fa-exclamation-triangle"></i>
-                <span id="overdueWarningText"></span>
-            </div>
-            <div class="modal-row">
-                <div class="modal-section">
-                    <label>Amount Received (₱)</label>
-                    <input type="number" name="amount" id="pay_amount" value="1500" required min="1" step="0.01">
+<div id="paymentModal" class="modal-wrapper drawer-right" aria-hidden="true">
+    <div class="modal-body admin-side-drawer">
+        <div class="admin-drawer-header">
+            <h2><i class="fas fa-hand-holding-usd color-primary"></i> Log Rent Payment</h2>
+            <button type="button" class="admin-drawer-close" id="paymentDrawerCloseBtn" aria-label="Close panel">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="admin-drawer-body">
+            <form method="POST" enctype="multipart/form-data" action="bookings.php" id="paymentDrawerForm">
+                <input type="hidden" name="log_payment" value="1">
+                <input type="hidden" name="booking_id" id="pay_booking_id">
+                <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
+                <p id="pay_resident_label" style="font-weight:800;color:#10b981;font-size:.95rem;margin:0 0 1rem;"></p>
+                <div id="overdueWarning" class="due-info-bar">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="overdueWarningText"></span>
+                </div>
+                <div class="modal-row">
+                    <div class="modal-section">
+                        <label>Amount Received (₱)</label>
+                        <input type="number" name="amount" id="pay_amount" value="1500" required min="1" step="0.01">
+                    </div>
+                    <div class="modal-section">
+                        <label>Next Due Date <small style="color:#94a3b8;text-transform:none;font-weight:600;">(+1 month)</small></label>
+                        <input type="date" name="next_due_date" id="pay_next_due" required>
+                    </div>
                 </div>
                 <div class="modal-section">
-                    <label>Next Due Date <small style="color:#94a3b8;text-transform:none;">(auto: +1 month)</small></label>
-                    <input type="date" name="next_due_date" id="pay_next_due" required>
+                    <label>Payment Notes (optional)</label>
+                    <input type="text" name="notes" placeholder="e.g. March rent, partial payment…">
                 </div>
-            </div>
-            <div class="modal-section">
-                <label>Payment Notes (optional)</label>
-                <input type="text" name="notes" placeholder="e.g. March rent, partial payment…">
-            </div>
-            <div class="modal-section">
-                <label>Upload Receipt (optional)</label>
-                <input type="file" name="receipt" accept="image/*,.pdf" style="padding:.5rem;">
-            </div>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" id="paymentModalClose">Cancel</button>
-                <button type="submit" class="btn-submit"><i class="fas fa-check"></i> Confirm Payment</button>
-            </div>
-        </form>
+                <div class="modal-section">
+                    <label>Upload Receipt (optional)</label>
+                    <div class="admin-file-upload">
+                        <input type="file" name="receipt" id="pay_receipt_input" class="admin-file-input-native" accept="image/*,.pdf">
+                        <label for="pay_receipt_input" class="admin-file-drop-label">
+                            <span class="admin-file-drop-icon"><i class="fas fa-cloud-upload-alt"></i></span>
+                            <span class="admin-file-drop-title">Choose file or drag here</span>
+                            <span class="admin-file-drop-hint">Images or PDF — optional</span>
+                        </label>
+                        <div class="admin-file-selected" id="payReceiptSelected" hidden>
+                            <i class="fas fa-file-alt" aria-hidden="true"></i>
+                            <span class="admin-file-selected-name" id="payReceiptFileName"></span>
+                            <button type="button" class="admin-file-clear" id="payReceiptClear" aria-label="Remove file">&times;</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="admin-drawer-actions">
+                    <button type="button" class="btn-cancel btn-drawer-secondary" id="paymentModalClose">Cancel</button>
+                    <button type="submit" class="btn-submit btn-drawer-primary"><i class="fas fa-check"></i> Confirm Payment</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════
      UPDATE STATUS MODAL
 ══════════════════════════════════════ -->
-<div id="statusModal" class="modal-wrapper">
-    <div class="modal-body max-w-500">
-        <h2 class="font-bold mb-4"><i class="fas fa-user-edit color-primary"></i> Update Booking Status</h2>
-        <form method="POST" action="bookings.php">
-            <input type="hidden" name="update_status" value="1">
-            <input type="hidden" name="id" id="status_booking_id">
-            <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
-            <div class="modal-row">
-                <div class="modal-section">
-                    <label>Registration Status</label>
-                    <select name="booking_status" id="status_booking_val">
-                        <option value="Active">Active Resident</option>
-                        <option value="Completed">Completed / Moved Out</option>
-                        <option value="Cancelled">Cancelled</option>
-                    </select>
+<div id="statusModal" class="modal-wrapper drawer-right">
+    <div class="modal-body admin-side-drawer">
+        <div class="admin-drawer-header">
+            <h2><i class="fas fa-user-edit color-primary"></i> Update Booking Status</h2>
+        </div>
+        <div class="admin-drawer-body">
+            <form method="POST" action="bookings.php">
+                <input type="hidden" name="update_status" value="1">
+                <input type="hidden" name="id" id="status_booking_id">
+                <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
+                <div class="modal-row">
+                    <div class="modal-section">
+                        <label>Registration Status</label>
+                        <select name="booking_status" id="status_booking_val">
+                            <option value="Active">Active Resident</option>
+                            <option value="Completed">Completed / Moved Out</option>
+                            <option value="Cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="modal-section">
+                        <label>Financial Status</label>
+                        <select name="payment_status" id="status_payment_val">
+                            <option value="Pending">Pending</option>
+                            <option value="Confirmed">Confirmed / Paid</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="modal-section">
-                    <label>Financial Status</label>
-                    <select name="payment_status" id="status_payment_val">
-                        <option value="Pending">Pending</option>
-                        <option value="Confirmed">Confirmed / Paid</option>
-                    </select>
+                <p style="font-size:.76rem;color:#94a3b8;margin:.25rem 0 1rem;line-height:1.45;">
+                    <i class="fas fa-info-circle"></i>
+                    Setting to <strong>Completed</strong> or <strong>Cancelled</strong> will free the assigned bed.
+                    Setting to <strong>Confirmed</strong> will auto-set the due date if missing.
+                </p>
+                <div class="admin-drawer-actions">
+                    <button type="button" class="btn-cancel" id="statusModalClose">Cancel</button>
+                    <button type="submit" class="btn-submit">Save Changes</button>
                 </div>
-            </div>
-            <p style="font-size:.76rem;color:#94a3b8;margin:.25rem 0 1rem;">
-                <i class="fas fa-info-circle"></i>
-                Setting to <strong>Completed</strong> or <strong>Cancelled</strong> will free the assigned bed.
-                Setting to <strong>Confirmed</strong> will auto-set the due date if missing.
-            </p>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" id="statusModalClose">Cancel</button>
-                <button type="submit" class="btn-submit">Save Changes</button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════
      CHECKOUT MODAL
 ══════════════════════════════════════ -->
-<div id="checkoutModal" class="modal-wrapper">
-    <div class="modal-body max-w-500">
-        <h2 class="font-bold mb-4"><i class="fas fa-door-open" style="color:#3b82f6;"></i> Checkout Resident</h2>
-        <form method="POST" action="bookings.php">
-            <input type="hidden" name="checkout" value="1">
-            <input type="hidden" name="id" id="checkout_booking_id">
-            <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
-            <p id="checkout_resident_name" style="font-weight:800;color:#3b82f6;font-size:.95rem;margin-bottom:1rem;"></p>
-            <div class="modal-section">
-                <label>Move-Out Date</label>
-                <input type="date" name="moveout_date" id="checkout_date" required>
-            </div>
-            <div class="modal-section">
-                <label>Remarks (optional)</label>
-                <textarea name="remarks" rows="3" placeholder="e.g. Left voluntarily, end of contract…"></textarea>
-            </div>
-            <p style="font-size:.76rem;color:#94a3b8;margin:.25rem 0 1rem;">
-                <i class="fas fa-info-circle"></i>
-                Booking will be marked <strong>Completed</strong> and the bed freed to <strong>Available</strong>.
-            </p>
-            <div class="modal-actions">
-                <button type="button" class="btn-cancel" id="checkoutModalClose">Cancel</button>
-                <button type="submit" class="btn-submit blue"><i class="fas fa-door-open"></i> Confirm Checkout</button>
-            </div>
-        </form>
+<div id="checkoutModal" class="modal-wrapper drawer-right">
+    <div class="modal-body admin-side-drawer">
+        <div class="admin-drawer-header">
+            <h2><i class="fas fa-door-open color-primary"></i> Checkout Resident</h2>
+        </div>
+        <div class="admin-drawer-body">
+            <form method="POST" action="bookings.php">
+                <input type="hidden" name="checkout" value="1">
+                <input type="hidden" name="id" id="checkout_booking_id">
+                <input type="hidden" name="current_filter" value="<?php echo htmlspecialchars($status_filter); ?>">
+                <p id="checkout_resident_name" style="font-weight:800;color:#3b82f6;font-size:.95rem;margin:0 0 1rem;"></p>
+                <div class="modal-section">
+                    <label>Move-Out Date</label>
+                    <input type="date" name="moveout_date" id="checkout_date" required>
+                </div>
+                <div class="modal-section">
+                    <label>Remarks (optional)</label>
+                    <textarea name="remarks" rows="3" placeholder="e.g. Left voluntarily, end of contract…"></textarea>
+                </div>
+                <p style="font-size:.76rem;color:#94a3b8;margin:.25rem 0 1rem;line-height:1.45;">
+                    <i class="fas fa-info-circle"></i>
+                    Booking will be marked <strong>Completed</strong> and the bed freed to <strong>Available</strong>.
+                </p>
+                <div class="admin-drawer-actions">
+                    <button type="button" class="btn-cancel" id="checkoutModalClose">Cancel</button>
+                    <button type="submit" class="btn-submit" style="background:#3b82f6;"><i class="fas fa-door-open"></i> Confirm Checkout</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════
      PAYMENT HISTORY MODAL
 ══════════════════════════════════════ -->
-<div id="historyModal" class="modal-wrapper">
-    <div class="modal-body max-w-500">
-        <h2 class="font-bold mb-4"><i class="fas fa-history color-primary"></i> Payment History</h2>
-        <p id="history_resident_name" style="font-weight:800;color:#10b981;font-size:.95rem;margin-bottom:1rem;"></p>
-        <div id="historyContent"></div>
-        <div style="margin-top:1rem;">
-            <button id="historyModalClose" style="width:100%;padding:.75rem;border-radius:.75rem;border:1.5px solid #e2e8f0;background:#f8fafc;font-weight:700;cursor:pointer;font-family:inherit;">Close</button>
+<div id="historyModal" class="modal-wrapper drawer-right">
+    <div class="modal-body admin-side-drawer">
+        <div class="admin-drawer-header">
+            <h2><i class="fas fa-history color-primary"></i> Resident &amp; payments</h2>
+        </div>
+        <div class="admin-drawer-body">
+            <p id="history_resident_name" style="font-weight:800;color:#10b981;font-size:.95rem;margin:0 0 1rem;"></p>
+            <div id="historyContent"></div>
+            <div class="admin-drawer-actions" style="margin-top:1.25rem;">
+                <button type="button" id="historyModalClose" class="btn-cancel" style="flex:1;max-width:100%;">Close</button>
+            </div>
         </div>
     </div>
 </div>
@@ -683,6 +725,7 @@ var PAYMENT_DATA   = <?php
 </script>
 
 
+<script src="../assets/js/chat.js"></script>
 <script src="../assets/js/admin.js"></script>
 <script src="../assets/js/bookings.js?v=<?= filemtime('../assets/js/bookings.js') ?>"></script>
 </body>

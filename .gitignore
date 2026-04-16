@@ -7,6 +7,9 @@ config/*.env
 config/*.php
 !config/config.env.example
 
+# Supabase local secrets (copy from public/api/supabase_config.sample.php)
+public/api/supabase_config.php
+
 # IDE / OS specific
 .vscode/
 .idea/
