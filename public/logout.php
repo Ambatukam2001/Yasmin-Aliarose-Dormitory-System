@@ -1,7 +1,7 @@
 <?php
-session_start();
-session_unset();
+require_once 'api/core.php';
 session_destroy();
 header("Location: login.php");
 exit;
+
 ?>
