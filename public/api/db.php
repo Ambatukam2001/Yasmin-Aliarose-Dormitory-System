@@ -18,6 +18,10 @@ try {
         $username = $parsed['user']     ?? '';
         $password = isset($parsed['pass']) ? urldecode($parsed['pass']) : '';
 
+        // SUPABASE POOLER REQUIREMENT: 
+        // If port is 6543, ensure project-ref is in the username if we know it.
+        // However, usually DATABASE_URL should already be correct.
+
         $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
 
     } else {
@@ -28,16 +32,19 @@ try {
                 $line = trim($line);
                 if ($line === '' || $line[0] === '#' || strpos($line, '=') === false) continue;
                 [$k, $v] = explode('=', $line, 2);
-                putenv(trim($k) . '=' . trim($v));
-                $_ENV[trim($k)] = trim($v);
+                $k = trim($k);
+                $v = trim($v);
+                putenv("{$k}={$v}");
+                $_ENV[$k] = $v;
             }
         }
-        $host     = getenv('DB_HOST') ?: 'localhost';
-        $port     = getenv('DB_PORT') ?: '3306';
-        $dbname   = getenv('DB_NAME') ?: 'dormitory_db';
-        $username = getenv('DB_USER') ?: 'root';
-        $password = getenv('DB_PASS') ?: '';
-        $db_type  = getenv('DB_TYPE') ?: 'mysql';
+        
+        $host     = getenv('DB_HOST') ?: 'aws-1-ap-northeast-1.pooler.supabase.com';
+        $port     = getenv('DB_PORT') ?: '6543';
+        $dbname   = getenv('DB_NAME') ?: 'postgres';
+        $username = getenv('DB_USER') ?: 'postgres.zafdsyvthslobaalkwam';
+        $password = getenv('DB_PASS') ?: 'gumamaadelyasin2001';
+        $db_type  = getenv('DB_TYPE') ?: 'pgsql';
 
         if ($db_type === 'pgsql' || strpos($host, 'supabase') !== false) {
             $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
@@ -52,16 +59,23 @@ try {
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
 
-    // Set timezone
+    // Set timezone and search path
     if (strpos($dsn, 'pgsql') === 0) {
         $conn->exec("SET TIME ZONE 'Asia/Manila'");
+        // Ensure we are using the public schema by default
+        $conn->exec("SET search_path TO public");
     } else {
         $conn->exec("SET time_zone = '+08:00'");
     }
     date_default_timezone_set('Asia/Manila');
 
 } catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
+    // Re-check username if authentication fails — common Supabase issue
+    $msg = $e->getMessage();
+    if (strpos($msg, 'password authentication failed') !== false) {
+        die("Connection failed: Authentication error. Please ensure your DB_USER is correctly formatted (e.g., postgres.project-ref for pooling) and your password is correct.");
+    }
+    die("Connection failed: " . $msg);
 }
 
 $site_name    = 'Yasmin & Aliarose Dormitory';
