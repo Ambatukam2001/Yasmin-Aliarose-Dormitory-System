@@ -1,24 +1,17 @@
 -- Yasmin & Aliarose Dormitory System
--- Consolidated database structure
--- Import with: mysql -u root -p dormitory_db < dormitory_full_schema.sql
+-- Consolidated database structure (PostgreSQL/Supabase Compatible)
 
-CREATE DATABASE IF NOT EXISTS dormitory_db
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-USE dormitory_db;
-
-SET FOREIGN_KEY_CHECKS = 0;
-
+-- 1. Admins Table
 CREATE TABLE IF NOT EXISTS admins (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   username VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 2. Users Table
 CREATE TABLE IF NOT EXISTS users (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   username VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,
   role VARCHAR(30) DEFAULT 'user',
@@ -27,38 +20,37 @@ CREATE TABLE IF NOT EXISTS users (
   phone VARCHAR(60) DEFAULT NULL,
   address TEXT DEFAULT NULL,
   emergency_contact VARCHAR(255) DEFAULT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 3. Rooms Table
+-- Note: Room number is unique PER FLOOR (allows Room 1 on every floor)
 CREATE TABLE IF NOT EXISTS rooms (
-  id INT NOT NULL AUTO_INCREMENT,
+  id SERIAL PRIMARY KEY,
   room_no VARCHAR(30) NOT NULL,
   floor_no INT NOT NULL,
   capacity INT DEFAULT 0,
   status VARCHAR(30) DEFAULT 'Available',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uniq_room_no (room_no)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT uniq_room_floor UNIQUE (room_no, floor_no)
+);
 
+-- 4. Beds Table
 CREATE TABLE IF NOT EXISTS beds (
-  id INT NOT NULL AUTO_INCREMENT,
-  room_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  room_id INT NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
   floor_id INT DEFAULT NULL,
   bed_no VARCHAR(30) NOT NULL,
   status VARCHAR(30) DEFAULT 'Available',
-  reserved_at DATETIME NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_beds_room (room_id),
-  CONSTRAINT fk_beds_room FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  reserved_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 5. Bookings Table
 CREATE TABLE IF NOT EXISTS bookings (
-  id INT NOT NULL AUTO_INCREMENT,
-  user_id INT DEFAULT NULL,
-  bed_id INT DEFAULT NULL,
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  bed_id INT REFERENCES beds(id) ON DELETE SET NULL,
   booking_ref VARCHAR(100) DEFAULT NULL,
   full_name VARCHAR(255) DEFAULT NULL,
   contact_number VARCHAR(100) DEFAULT NULL,
@@ -77,90 +69,72 @@ CREATE TABLE IF NOT EXISTS bookings (
   move_out_date DATE NULL,
   due_date DATE NULL,
   remarks TEXT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_bookings_user (user_id),
-  KEY idx_bookings_bed (bed_id),
-  CONSTRAINT fk_bookings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-  CONSTRAINT fk_bookings_bed FOREIGN KEY (bed_id) REFERENCES beds(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 6. Payments Table
 CREATE TABLE IF NOT EXISTS payments (
-  id INT NOT NULL AUTO_INCREMENT,
-  booking_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  booking_id INT NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
   amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   payment_method VARCHAR(100) DEFAULT NULL,
   notes TEXT NULL,
   receipt_path VARCHAR(255) DEFAULT NULL,
-  paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   payment_date DATE NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_payments_booking (booking_id),
-  CONSTRAINT fk_payments_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 7. Transfer Requests Table
 CREATE TABLE IF NOT EXISTS transfer_requests (
-  id INT NOT NULL AUTO_INCREMENT,
-  user_id INT NOT NULL,
-  booking_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  booking_id INT REFERENCES bookings(id) ON DELETE CASCADE,
   requested_floor INT NOT NULL,
-  requested_room_id INT NOT NULL,
+  requested_room_id INT REFERENCES rooms(id) ON DELETE CASCADE,
   requested_bed_type VARCHAR(100) DEFAULT NULL,
   reason TEXT NOT NULL,
   status VARCHAR(30) DEFAULT 'Pending',
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_transfer_user (user_id),
-  KEY idx_transfer_booking (booking_id),
-  KEY idx_transfer_room (requested_room_id),
-  CONSTRAINT fk_transfer_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_transfer_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-  CONSTRAINT fk_transfer_room FOREIGN KEY (requested_room_id) REFERENCES rooms(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 8. Request Out Requests Table
 CREATE TABLE IF NOT EXISTS request_out_requests (
-  id INT NOT NULL AUTO_INCREMENT,
-  user_id INT NOT NULL,
-  booking_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE,
+  booking_id INT REFERENCES bookings(id) ON DELETE CASCADE,
   request_out_date DATE NOT NULL,
   reason TEXT NOT NULL,
   status VARCHAR(30) DEFAULT 'Pending',
-  reviewed_by INT NULL,
-  reviewed_at DATETIME NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_request_out_user (user_id),
-  KEY idx_request_out_booking (booking_id),
-  KEY idx_request_out_admin (reviewed_by),
-  CONSTRAINT fk_request_out_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_request_out_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-  CONSTRAINT fk_request_out_admin FOREIGN KEY (reviewed_by) REFERENCES admins(id) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  reviewed_by INT REFERENCES admins(id) ON DELETE SET NULL,
+  reviewed_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 9. Chats Table
 CREATE TABLE IF NOT EXISTS chats (
-  id INT NOT NULL AUTO_INCREMENT,
-  user_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   last_message TEXT NULL,
-  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_chats_user (user_id),
-  CONSTRAINT fk_chats_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
+-- 10. Messages Table
 CREATE TABLE IF NOT EXISTS messages (
-  id INT NOT NULL AUTO_INCREMENT,
-  chat_id INT NOT NULL,
+  id SERIAL PRIMARY KEY,
+  chat_id INT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
   sender_type VARCHAR(30) NOT NULL,
   sender_id INT DEFAULT NULL,
   receiver_id INT DEFAULT NULL,
   message TEXT NULL,
   file_url VARCHAR(255) DEFAULT NULL,
-  is_voice TINYINT(1) DEFAULT 0,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  KEY idx_messages_chat (chat_id),
-  CONSTRAINT fk_messages_chat FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  is_voice BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-SET FOREIGN_KEY_CHECKS = 1;
+-- Create some useful indexes for speed
+CREATE INDEX IF NOT EXISTS idx_beds_room ON beds(room_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_bed ON bookings(bed_id);
+CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
+CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id);
