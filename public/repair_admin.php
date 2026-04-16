@@ -1,10 +1,11 @@
 <?php
 require_once 'api/db.php';
 
-echo "<h2>Dormitory System Repair Tool</h2>";
+echo "<div style='font-family:sans-serif; max-width:600px; margin:2rem auto; border:1px solid #ccc; padding:2rem; border-radius:12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1);'>";
+echo "<h2 style='color:#10b981; margin-top:0;'>Supabase Connection Repair</h2>";
 
 try {
-    // 1. Test Connection
+    // 1. Connection Info
     $driver = $conn->getAttribute(PDO::ATTR_DRIVER_NAME);
     if ($driver === 'pgsql') {
         $stmt = $conn->query("SELECT current_database() as db, current_user as usr");
@@ -12,39 +13,44 @@ try {
         $stmt = $conn->query("SELECT DATABASE() as db, USER() as usr");
     }
     $info = $stmt->fetch();
-
-    $driver = $conn->getAttribute(PDO::ATTR_DRIVER_NAME);
-    $is_vercel = !empty(getenv('DATABASE_URL'));
+    $is_vercel = !empty(getenv('DATABASE_URL')) || !empty(getenv('POSTGRES_URL'));
     
-    echo "<p style='padding:1rem; border:1px solid #ccc; border-radius:8px;'>";
-    echo "<strong>Environment:</strong> " . ($is_vercel ? "<span style='color:blue'>Vercel (Production)</span>" : "<span style='color:orange'>Localhost (XAMPP)</span>") . "<br>";
-    echo "<strong>Database Driver:</strong> <span style='color:purple'>$driver</span><br>";
-    echo "<strong>Connected to DB:</strong> " . $info['db'] . "<br>";
-    echo "<strong>DB User:</strong> " . $info['usr'];
+    echo "<div style='background:#f1f5f9; padding:1rem; border-radius:8px; margin-bottom:1.5rem;'>";
+    echo "<strong>Target:</strong> " . ($is_vercel ? "<span style='color:blue'>Vercel/Supabase (Production)</span>" : "<span style='color:orange'>Localhost (XAMPP)</span>") . "<br>";
+    echo "<strong>Driver:</strong> $driver<br>";
+    echo "<strong>DB:</strong> " . ($info['db'] ?? 'unknown') . "<br>";
+    echo "<strong>User:</strong> " . ($info['usr'] ?? 'unknown');
+    echo "</div>";
 
-    echo "</p>";
-
-    // 2. Clear debug info from db.php (Optional, but good for security)
-    // 3. Reset Admin Password to 'admin123'
-    $new_password = password_hash('admin123', PASSWORD_DEFAULT);
+    // 2. Clear and Create Admin
+    echo "<h3>System Maintenance:</h3>";
     
-    // Check if admin 'admin' exists
-    $check = $conn->prepare("SELECT id FROM admins WHERE username = 'admin'");
-    $check->execute();
-    if ($check->fetch()) {
-        $upd = $conn->prepare("UPDATE admins SET password = ? WHERE username = 'admin'");
-        $upd->execute([$new_password]);
-        echo "<p style='color:blue'>✅ Password for user 'admin' reset to: <strong>admin123</strong></p>";
-    } else {
-        // Create it if missing
-        $ins = $conn->prepare("INSERT INTO admins (username, password) VALUES ('admin', ?)");
-        $ins->execute([$new_password]);
-        echo "<p style='color:blue'>✅ Admin user 'admin' created with password: <strong>admin123</strong></p>";
+    // Ensure table exists (for PostgreSQL)
+    if ($driver === 'pgsql') {
+        $conn->exec("CREATE TABLE IF NOT EXISTS admins (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(255) UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )");
     }
 
-    echo "<p><a href='login.php'>Go to Login Page</a></p>";
+    // Deep clean: Delete existing admin 'admin' to avoid duplicates or salt issues
+    $conn->prepare("DELETE FROM admins WHERE username = 'admin'")->execute();
+    
+    $new_password = password_hash('admin123', PASSWORD_DEFAULT);
+    $ins = $conn->prepare("INSERT INTO admins (username, password) VALUES ('admin', ?)");
+    $ins->execute([$new_password]);
+
+    echo "<p style='color:green; font-weight:bold;'>✅ Success! Admin account 'admin' recreated.</p>";
+    echo "<p>Your password is now: <span style='background:#eee; padding:2px 6px; border-radius:4px;'>admin123</span></p>";
+    
+    echo "<div style='margin-top:2rem;'>";
+    echo "<a href='login.php' style='background:#10b981; color:white; padding:0.75rem 1.5rem; text-decoration:none; border-radius:8px; font-weight:bold;'>Go to Login Page</a>";
+    echo "</div>";
 
 } catch (Exception $e) {
-    echo "<p style='color:red'>❌ Error: " . $e->getMessage() . "</p>";
+    echo "<p style='color:red; background:#fee2e2; padding:1rem; border-radius:8px;'>❌ Error: " . $e->getMessage() . "</p>";
 }
+echo "</div>";
 ?>
