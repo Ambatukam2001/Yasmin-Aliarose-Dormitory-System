@@ -5,8 +5,15 @@ require_admin_auth();
 $route = 'request_outs';
 
 $has_request_out_table = false;
-$check_table = $conn->query("SHOW TABLES LIKE 'request_out_requests'");
-if ($check_table && $check_table->num_rows > 0) {
+$is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+
+if ($is_pgsql) {
+    $check_table = $conn->query("SELECT 1 FROM information_schema.tables WHERE table_name = 'request_out_requests' LIMIT 1");
+} else {
+    $check_table = $conn->query("SHOW TABLES LIKE 'request_out_requests'");
+}
+
+if ($check_table && $check_table->fetch()) {
     $has_request_out_table = true;
 }
 
@@ -20,14 +27,10 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
         exit;
     }
 
-    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
     try {
         $stmt = $conn->prepare("SELECT * FROM request_out_requests WHERE id = ? AND status = 'Pending' LIMIT 1");
-        $stmt->bind_param("i", $req_id);
-        $stmt->execute();
-        $request_out = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmt->execute([$req_id]);
+        $request_out = $stmt->fetch();
 
         if (!$request_out) {
             $_SESSION['flash_msg'] = "Request-out not found or already processed.";
@@ -39,9 +42,7 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
 
         if ($action === 'decline') {
             $stmt = $conn->prepare("UPDATE request_out_requests SET status = 'Declined', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");
-            $stmt->bind_param("ii", $admin_id, $req_id);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute([$admin_id, $req_id]);
 
             $_SESSION['flash_msg'] = "Request-out declined.";
             header('Location: request_outs.php');
@@ -51,40 +52,32 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
         $booking_id = intval($request_out['booking_id'] ?? 0);
         $request_out_date = $request_out['request_out_date'] ?? date('Y-m-d');
 
-        $conn->begin_transaction();
+        $conn->beginTransaction();
 
         if ($booking_id > 0) {
             $stmt = $conn->prepare("SELECT bed_id FROM bookings WHERE id = ? LIMIT 1");
-            $stmt->bind_param("i", $booking_id);
-            $stmt->execute();
-            $booking = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch();
 
             $old_bed_id = intval($booking['bed_id'] ?? 0);
             if ($old_bed_id > 0) {
                 $stmt = $conn->prepare("UPDATE beds SET status = 'Available' WHERE id = ?");
-                $stmt->bind_param("i", $old_bed_id);
-                $stmt->execute();
-                $stmt->close();
+                $stmt->execute([$old_bed_id]);
             }
 
             $remarks = "Request-out approved by admin";
             $stmt = $conn->prepare("UPDATE bookings SET booking_status = 'Completed', move_out_date = ?, remarks = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $request_out_date, $remarks, $booking_id);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute([$request_out_date, $remarks, $booking_id]);
         }
 
         $stmt = $conn->prepare("UPDATE request_out_requests SET status = 'Approved', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");
-        $stmt->bind_param("ii", $admin_id, $req_id);
-        $stmt->execute();
-        $stmt->close();
+        $stmt->execute([$admin_id, $req_id]);
 
         $conn->commit();
         $_SESSION['flash_msg'] = "Request-out approved successfully.";
     } catch (Exception $e) {
-        if ($conn->in_transaction) {
-            $conn->rollback();
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
         }
         $_SESSION['flash_msg'] = "Request-out error: " . $e->getMessage();
     }
@@ -108,7 +101,7 @@ if ($has_request_out_table) {
         LEFT JOIN beds bd ON b.bed_id = bd.id
         LEFT JOIN rooms rm ON bd.room_id = rm.id
         ORDER BY ro.created_at DESC
-    ")->fetch_all(MYSQLI_ASSOC);
+    ")->fetchAll();
 }
 ?>
 <!DOCTYPE html>

@@ -15,11 +15,16 @@ if ($health_token !== '') {
     }
 }
 
-function table_exists(mysqli $conn, string $table_name): bool
+function table_exists(PDO $conn, string $table_name): bool
 {
-    $safe = $conn->real_escape_string($table_name);
-    $res = $conn->query("SHOW TABLES LIKE '{$safe}'");
-    return $res && $res->num_rows > 0;
+    $is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+    if ($is_pgsql) {
+        $stmt = $conn->prepare("SELECT 1 FROM information_schema.tables WHERE table_name = ? LIMIT 1");
+    } else {
+        $stmt = $conn->prepare("SHOW TABLES LIKE ?");
+    }
+    $stmt->execute([$table_name]);
+    return (bool)$stmt->fetch();
 }
 
 $required_tables = [
@@ -54,15 +59,22 @@ $upload_dirs = [
 $dir_checks = [];
 $all_dirs_ok = true;
 foreach ($upload_dirs as $dir) {
-    $ok = is_dir($dir) && is_writable($dir);
+    $ok = is_dir($dir); // Removed is_writable for Vercel since it's a read-only filesystem usually
     $dir_checks[$dir] = $ok;
     if (!$ok) {
-        $all_dirs_ok = false;
+        // We don't fail health check on directories in Vercel as they are ephemeral or stored in S3/Supabase Storage
+        // $all_dirs_ok = false; 
     }
 }
 
-$db_ok = !$conn->connect_errno;
-$ok = $db_ok && $all_tables_ok && $all_dirs_ok;
+$db_ok = true;
+try {
+    $conn->query("SELECT 1");
+} catch (Exception $e) {
+    $db_ok = false;
+}
+
+$ok = $db_ok && $all_tables_ok;
 
 echo json_encode([
     'ok' => $ok,
@@ -70,6 +82,6 @@ echo json_encode([
     'checks' => [
         'database_connection' => $db_ok,
         'required_tables' => $table_checks,
-        'upload_directories_writable' => $dir_checks,
+        'upload_directories_exists' => $dir_checks,
     ]
 ], JSON_PRETTY_PRINT);
