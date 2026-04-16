@@ -32,29 +32,25 @@ if (!$booking_id || !$method) {
     exit;
 }
 
-$receipt_path = '';
+$receipt_data = '';
 
 if ($method === 'GCash' && isset($_FILES['receipt'])) {
-    $target_dir = "../uploads/receipts/";
-    if (!is_dir($target_dir)) mkdir($target_dir, 0777, true);
-    
-    $file_ext   = strtolower(pathinfo($_FILES["receipt"]["name"], PATHINFO_EXTENSION));
-    $file_name  = "pay_" . time() . "_" . $user_id . "." . $file_ext;
-    $target_file = $target_dir . $file_name;
-    
-    if (move_uploaded_file($_FILES["receipt"]["tmp_name"], $target_file)) {
-        $receipt_path = "uploads/receipts/" . $file_name;
-    } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to upload receipt']);
-        exit;
+    $file = $_FILES['receipt'];
+    if ($file['size'] > 4 * 1024 * 1024) {
+        handlePaymentError('Image is too large. Max 4MB allowed.');
     }
+    
+    $type = pathinfo($file['name'], PATHINFO_EXTENSION);
+    $data = file_get_contents($file['tmp_name']);
+    $base64 = 'data:image/' . $type . ';base64,' . base64_encode($data);
+    $receipt_data = $base64;
 }
 
 // Log into payments table with 'Pending' note
 $stmt      = $conn->prepare("INSERT INTO payments (booking_id, amount, payment_method, notes, paid_at) VALUES (?, ?, ?, ?, NOW())");
 $zero_amount = 0.00;
-// Standardize prefix for UI detection
-$notes     = ($method === 'GCash') ? "GCash Receipt: " . $receipt_path : "Cash-in Request at Admin - Status: Pending Verification";
+// Use a searchable prefix + the base64 data
+$notes     = ($method === 'GCash') ? "GCASH_PROOF:" . $receipt_data : "Cash-in Request at Admin - Status: Pending Verification";
 
 if ($stmt->execute([$booking_id, $zero_amount, $method, $notes])) {
     echo json_encode(['success' => true]);

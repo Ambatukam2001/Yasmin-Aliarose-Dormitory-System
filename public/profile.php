@@ -1067,9 +1067,13 @@ include 'api/header.php';
                                     <td data-label="Reference" style="padding:1.25rem 1rem; font-size:0.85rem; color:var(--text-secondary); border-top-right-radius:12px; border-bottom-right-radius:12px;">
                                         <?php 
                                             $notes = $p['notes'];
-                                            if (strpos($notes, 'GCash Receipt:') !== false) {
+                                            if (strpos($notes, 'GCASH_PROOF:') === 0) {
+                                                $data = str_replace('GCASH_PROOF:', '', $notes);
+                                                echo '<a href="'.$data.'" target="_blank" style="color:var(--primary); font-weight:800; text-decoration:none;"><i class="fas fa-image"></i> View Receipt</a>';
+                                            } elseif (strpos($notes, 'GCash Receipt:') !== false) {
+                                                // Backward compatibility for old files
                                                 $path = str_replace('GCash Receipt: ', '', $notes);
-                                                echo '<a href="'.$base_dir.$path.'" target="_blank" style="color:var(--primary); font-weight:800; text-decoration:none;"><i class="fas fa-image"></i> View Receipt</a>';
+                                                echo '<a href="'.$base_dir.$path.'" target="_blank" style="color:var(--primary); font-weight:800; text-decoration:none;"><i class="fas fa-image"></i> View Receipt (Old)</a>';
                                             } else {
                                                 echo htmlspecialchars($notes ?: '-');
                                             }
