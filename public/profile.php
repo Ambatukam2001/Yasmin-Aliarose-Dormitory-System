@@ -1347,22 +1347,45 @@ include 'api/header.php';
         }
 
         try {
-            const res = await fetch('api/submit_payment_request.php', {
+            const res = await fetch('<?php echo $base_dir; ?>api/submit_payment_request.php', {
                 method: 'POST',
                 body: formData
             });
-            const data = await res.json();
+            
+            const rawText = await res.text();
+            let data;
+            
+            try {
+                data = JSON.parse(rawText);
+            } catch(jsonErr) {
+                console.error('Server returned non-JSON:', rawText);
+                throw new Error('The server returned an invalid response. Please try again with a smaller image.');
+            }
             
             if (data.success) {
-                alert('Payment notification sent to admin! Please wait for verification.');
-                location.reload();
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Payment Sent!',
+                    text: 'Admin will verify your proof within 24 hours.',
+                    confirmButtonColor: '#10b981'
+                }).then(() => location.reload());
             } else {
-                alert(data.message || 'Something went wrong.');
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Submission Failed',
+                    text: data.message || 'Something went wrong.'
+                });
                 btn.disabled = false;
                 btn.innerHTML = 'Confirm Payment <i class="fas fa-check-circle"></i>';
             }
         } catch(e) {
-            alert('Error connecting to server.');
+            console.error('Fetch Error:', e);
+            Swal.fire({
+                icon: 'warning',
+                title: 'Connection Issue',
+                text: 'Could not reach the server. Ensure your file is under 4MB or check your connection.',
+                footer: '<small>Error: ' + e.message + '</small>'
+            });
             btn.disabled = false;
             btn.innerHTML = 'Confirm Payment <i class="fas fa-check-circle"></i>';
         }

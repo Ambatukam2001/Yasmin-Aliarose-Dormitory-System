@@ -1,16 +1,26 @@
 <?php
+/**
+ * api/submit_payment_request.php
+ */
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 require_once 'core.php';
 
 header('Content-Type: application/json');
 
-if (!isset($_SESSION['user_id'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+// Global error handler to return JSON
+function handlePaymentError($msg) {
+    echo json_encode(['success' => false, 'message' => $msg]);
     exit;
+}
+set_error_handler(function($errno, $errstr) { return true; }); // Suppress warnings
+
+if (!isset($_SESSION['user_id'])) {
+    handlePaymentError('Your session has expired. Please log in again.');
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode(['success' => false, 'message' => 'Invalid request']);
-    exit;
+    handlePaymentError('Method not allowed.');
 }
 
 $booking_id = intval($_POST['booking_id'] ?? 0);
