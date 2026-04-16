@@ -15,6 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $r_no   = trim($_POST['room_no'] ?? '');
     $f_no   = (int)($_POST['floor_no'] ?? 2);
     $bcount = (int)($_POST['beds_count'] ?? 4);
+
+    if ($r_no && $bcount >= 0) {
         $check = $conn->prepare("SELECT id FROM rooms WHERE room_no = ? AND floor_no = ?");
         $check->execute([$r_no, $f_no]);
         if ($check->fetch()) {
@@ -23,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
             try {
                 $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
                 if ($stmt->execute([$r_no, $f_no, $bcount])) {
-
                     $new_room_id = $conn->lastInsertId();
                     for ($i = 1; $i <= $bcount; $i++) {
                         $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
@@ -37,10 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
             }
         }
     }
-
     header('Location: room_management.php');
     exit;
 }
+
 
 /* ── POST: Edit Room ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
