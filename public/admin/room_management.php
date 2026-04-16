@@ -13,7 +13,8 @@ $route = 'rooms';
 /* ── POST: Add Room ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $r_no   = trim($_POST['room_no'] ?? '');
-    $f_no   = (int)($_POST['floor_no'] ?? 1);
+    $f_no   = (int)($_POST['floor_no'] ?? 2);
+
     $bcount = (int)($_POST['beds_count'] ?? 4);
 
     if ($r_no && $bcount >= 0) {
@@ -61,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
     $r_id   = (int)($_POST['room_id'] ?? 0);
     $r_no   = trim($_POST['room_no'] ?? '');
-    $f_no   = (int)($_POST['floor_no'] ?? 1);
+    $f_no   = (int)($_POST['floor_no'] ?? 2);
     $status = $_POST['room_status'] ?? 'Available';
     if ($r_id && $r_no) {
         $stmt = $conn->prepare("UPDATE rooms SET room_no = ?, floor_no = ?, status = ? WHERE id = ?");
@@ -457,7 +458,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 <div class="form-group mb-4">
                     <label>Floor Number</label>
                     <select name="floor_no" class="input-select w-full" required>
-                        <option value="1">1st Floor</option>
                         <option value="2">2nd Floor</option>
                         <option value="3">3rd Floor</option>
                         <option value="4">4th Floor</option>
@@ -491,7 +491,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 <div class="form-group mb-4">
                     <label>Floor</label>
                     <select name="floor_no" id="edit_floor_no" class="input-select w-full">
-                        <option value="1">1st Floor</option>
                         <option value="2">2nd Floor</option>
                         <option value="3">3rd Floor</option>
                         <option value="4">4th Floor</option>
