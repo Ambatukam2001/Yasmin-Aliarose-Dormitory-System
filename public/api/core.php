@@ -41,16 +41,20 @@ if (session_status() === PHP_SESSION_NONE) {
         ini_set('session.cookie_secure', 1);
     }
 
-    // Register our database session handler
+    // Register our database session handler ONLY if the table exists
     try {
-        $handler = new DbSessionHandler($conn);
-        session_set_save_handler($handler, true);
-        session_start();
+        $checkTable = $conn->query("SELECT 1 FROM information_schema.tables WHERE table_name = 'sessions' LIMIT 1");
+        if ($checkTable && $checkTable->fetch()) {
+            $handler = new DbSessionHandler($conn);
+            session_set_save_handler($handler, true);
+        }
     } catch (Exception $e) {
-        // Fallback to default if DB session fails (e.g. table not created yet)
-        @session_start();
+        // Table doesn't exist or other DB error, use default handler
     }
+    
+    @session_start();
 }
+
 
 
 
