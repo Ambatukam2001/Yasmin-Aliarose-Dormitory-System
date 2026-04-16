@@ -3,8 +3,14 @@
 // Database Connection — Supabase via DATABASE_URL
 // ============================================================
 
-// Read the full connection URL from Vercel environment variable
-$database_url = trim(getenv('DATABASE_URL') ?: ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? ''));
+// Read the connection URL from various possible environment variables
+$database_url = trim(
+    getenv('DATABASE_URL') ?: 
+    getenv('POSTGRES_URL') ?: 
+    getenv('SUPABASE_DB_URL') ?: 
+    ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? '')
+);
+
 
 try {
     if (!empty($database_url)) {
