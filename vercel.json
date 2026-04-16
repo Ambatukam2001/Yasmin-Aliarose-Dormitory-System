@@ -1,9 +1,13 @@
 {
-  "version": 2,
-  "rewrites": [
+  "functions": {
+    "public/**/*.php": {
+      "runtime": "vercel-php@0.6.0"
+    }
+  },
+  "routes": [
     {
-      "source": "/(.*)",
-      "destination": "https://your-php-backend.example.com/$1"
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }
