@@ -4,7 +4,7 @@
 // ============================================================
 
 // Read the full connection URL from Vercel environment variable
-$database_url = getenv('DATABASE_URL') ?: ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? '');
+$database_url = trim(getenv('DATABASE_URL') ?: ($_SERVER['DATABASE_URL'] ?? $_ENV['DATABASE_URL'] ?? ''));
 
 try {
     if (!empty($database_url)) {
@@ -70,9 +70,11 @@ try {
     
     // Detailed error for authentication failures
     if (strpos($msg, 'password authentication failed') !== false) {
-        $debug_info = "Host: $host, Port: $port, User: $username, DB: $dbname";
+        $pass_len = strlen($password);
+        $debug_info = "Host: $host, Port: $port, User: $username, DB: $dbname, PassLen: $pass_len";
         die("Connection failed (Source: $source): Authentication error.\n<br>Values used: $debug_info\n<br>Error: $msg");
     }
+
     die("Connection failed (Source: $source): " . $msg);
 }
 
