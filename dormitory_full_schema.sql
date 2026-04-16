@@ -31,9 +31,13 @@ CREATE TABLE IF NOT EXISTS rooms (
   floor_no INT NOT NULL,
   capacity INT DEFAULT 0,
   status VARCHAR(30) DEFAULT 'Available',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT uniq_room_floor UNIQUE (room_no, floor_no)
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Deep Clean Blockages
+ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_room_no_key;
+ALTER TABLE rooms DROP CONSTRAINT IF EXISTS uniq_room_floor;
+ALTER TABLE rooms ADD CONSTRAINT uniq_room_floor UNIQUE (room_no, floor_no);
 
 -- 4. Beds Table
 CREATE TABLE IF NOT EXISTS beds (

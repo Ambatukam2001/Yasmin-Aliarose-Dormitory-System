@@ -43,14 +43,22 @@ try {
     )");
     echo "<p>✅ Session storage initialized.</p>";
 
-    // FIXED: Drop old MySQL-style constraint if it exists and add unique (room_no, floor_no)
+    // FIXED: Deep Clean Rooms & Beds constraints
+    echo "<h3>Deep Cleaning Blockages...</h3>";
     try {
+        // Drop any old index that might make room_no unique globally
         $conn->exec("ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_room_no_key");
         $conn->exec("ALTER TABLE rooms DROP CONSTRAINT IF EXISTS uniq_room_floor");
         $conn->exec("ALTER TABLE rooms ADD CONSTRAINT uniq_room_floor UNIQUE (room_no, floor_no)");
-        echo "<p>✅ Room numbering fixed (You can now have Room 1 on every floor).</p>";
+        echo "<p>✅ Room blockage cleared.</p>";
+
+        // Drop any old index that might make bed_no unique globally
+        // (Beds should only be unique inside their specific room)
+        $conn->exec("ALTER TABLE beds DROP CONSTRAINT IF EXISTS beds_bed_no_key");
+        $conn->exec("ALTER TABLE beds DROP CONSTRAINT IF EXISTS beds_bed_no_room_id_key");
+        echo "<p>✅ Bed blockage cleared.</p>";
     } catch(Exception $e) {
-        // Might fail if not Postgres, but we are on Postgres
+        echo "<p style='color:orange'>⚠️ Cleanup note: " . $e->getMessage() . "</p>";
     }
 
     // Deep clean: Delete existing admin 'admin' to avoid duplicates or salt issues
