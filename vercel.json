@@ -6,6 +6,26 @@
   },
   "routes": [
     {
+      "src": "/",
+      "dest": "/public/index.php"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/public/api/$1"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/public/admin/$1"
+    },
+    {
+      "src": "/assets/(.*)",
+      "dest": "/public/assets/$1"
+    },
+    {
+      "src": "/([^/]+\\.php)",
+      "dest": "/public/$1"
+    },
+    {
       "src": "/(.*)",
       "dest": "/public/$1"
     }
