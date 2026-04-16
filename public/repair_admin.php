@@ -5,9 +5,24 @@ echo "<h2>Dormitory System Repair Tool</h2>";
 
 try {
     // 1. Test Connection
-    $stmt = $conn->query("SELECT current_database(), current_user");
+    $driver = $conn->getAttribute(PDO::ATTR_DRIVER_NAME);
+    if ($driver === 'pgsql') {
+        $stmt = $conn->query("SELECT current_database() as db, current_user as usr");
+    } else {
+        $stmt = $conn->query("SELECT DATABASE() as db, USER() as usr");
+    }
     $info = $stmt->fetch();
-    echo "<p style='color:green'>✅ Connected to: " . $info['current_database'] . "</p>";
+
+    $driver = $conn->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $is_vercel = !empty(getenv('DATABASE_URL'));
+    
+    echo "<p style='padding:1rem; border:1px solid #ccc; border-radius:8px;'>";
+    echo "<strong>Environment:</strong> " . ($is_vercel ? "<span style='color:blue'>Vercel (Production)</span>" : "<span style='color:orange'>Localhost (XAMPP)</span>") . "<br>";
+    echo "<strong>Database Driver:</strong> <span style='color:purple'>$driver</span><br>";
+    echo "<strong>Connected to DB:</strong> " . $info['db'] . "<br>";
+    echo "<strong>DB User:</strong> " . $info['usr'];
+
+    echo "</p>";
 
     // 2. Clear debug info from db.php (Optional, but good for security)
     // 3. Reset Admin Password to 'admin123'
