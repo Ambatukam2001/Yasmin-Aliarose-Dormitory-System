@@ -43,6 +43,16 @@ try {
     )");
     echo "<p>✅ Session storage initialized.</p>";
 
+    // FIXED: Drop old MySQL-style constraint if it exists and add unique (room_no, floor_no)
+    try {
+        $conn->exec("ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_room_no_key");
+        $conn->exec("ALTER TABLE rooms DROP CONSTRAINT IF EXISTS uniq_room_floor");
+        $conn->exec("ALTER TABLE rooms ADD CONSTRAINT uniq_room_floor UNIQUE (room_no, floor_no)");
+        echo "<p>✅ Room numbering fixed (You can now have Room 1 on every floor).</p>";
+    } catch(Exception $e) {
+        // Might fail if not Postgres, but we are on Postgres
+    }
+
     // Deep clean: Delete existing admin 'admin' to avoid duplicates or salt issues
     $conn->prepare("DELETE FROM admins WHERE username = 'admin'")->execute();
     
