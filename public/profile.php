@@ -1025,38 +1025,56 @@ include 'api/header.php';
 
             <!-- Rent History -->
             <div class="panel">
-                <div class="panel-header">
-                    <h3><i class="fas fa-history color-primary"></i> Payment History</h3>
+                <div class="panel-header" style="border-bottom: 1px solid #f1f5f9; padding: 1.25rem 2rem;">
+                    <h3 style="font-family:'Outfit'; font-weight:800; color:var(--text-main); margin:0;">
+                         <i class="fas fa-history color-primary" style="margin-right:0.5rem;"></i> Payment History
+                    </h3>
                 </div>
-                <div class="table-responsive-stack">
+                <div class="table-responsive-stack" style="padding: 1rem 1.5rem 2rem;">
                     <?php if(empty($payments)): ?>
-                        <div class="empty-state profile-empty-state">
-                            <i class="fas fa-file-invoice-dollar"></i>
-                            <p>No payment history available.</p>
+                        <div class="empty-state profile-empty-state" style="padding:3rem;">
+                            <i class="fas fa-file-invoice-dollar" style="font-size:2.5rem; color:var(--primary); opacity:0.3; margin-bottom:1rem;"></i>
+                            <p style="color:var(--text-secondary); font-weight:600;">No payment history available.</p>
                         </div>
                     <?php else: ?>
-                        <table>
+                        <table style="width:100%; border-collapse: separate; border-spacing: 0 0.5rem;">
                             <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Bed Service</th>
-                                    <th>Amount</th>
-                                    <th>Method</th>
-                                    <th>Reference</th>
+                                <tr style="background:transparent;">
+                                    <th style="padding:0.75rem 1rem; text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); font-weight:800;">Date & Time</th>
+                                    <th style="padding:0.75rem 1rem; text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); font-weight:800;">Service</th>
+                                    <th style="padding:0.75rem 1rem; text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); font-weight:800;">Amount</th>
+                                    <th style="padding:0.75rem 1rem; text-align:center; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); font-weight:800;">Method</th>
+                                    <th style="padding:0.75rem 1rem; text-align:left; font-size:0.7rem; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-muted); font-weight:800;">Reference</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach($payments as $p): ?>
-                                <tr>
-                                    <td data-label="Date" style="white-space: nowrap;"><?php echo date('M d, Y h:i A', strtotime($p['paid_at'])); ?></td>
-                                    <td data-label="Bed Service" style="font-weight: 600;"><?php echo htmlspecialchars($p['bed_no'] ? 'Bed '.$p['bed_no'] : 'N/A'); ?></td>
-                                    <td data-label="Amount" style="font-weight:800;color:var(--primary);">₱<?php echo number_format($p['amount'], 2); ?></td>
-                                    <td data-label="Method">
-                                        <span class="payment-method-chip">
+                                <tr style="background:#f8fafc; border-radius:12px; transition:0.2s transform;">
+                                    <td data-label="Date" style="padding:1.25rem 1rem; font-size:0.85rem; color:var(--text-secondary); border-top-left-radius:12px; border-bottom-left-radius:12px; white-space:nowrap;">
+                                        <?php echo date('M d, Y h:i A', strtotime($p['paid_at'])); ?>
+                                    </td>
+                                    <td data-label="Bed Service" style="padding:1.25rem 1rem; font-weight:700; color:var(--text-main);">
+                                        <?php echo htmlspecialchars($p['bed_no'] ? 'Bed '.$p['bed_no'] : 'N/A'); ?>
+                                    </td>
+                                    <td data-label="Amount" style="padding:1.25rem 1rem; font-weight:800; color:#10b981;">
+                                        ₱<?php echo number_format($p['amount'], 2); ?>
+                                    </td>
+                                    <td data-label="Method" style="padding:1.25rem 1rem; text-align:center;">
+                                        <span style="display:inline-block; padding:0.4rem 0.8rem; background:rgba(15,23,42,0.05); color:var(--text-main); border-radius:20px; font-weight:800; font-size:0.65rem; text-transform:uppercase;">
                                             <?php echo htmlspecialchars($p['payment_method'] ?: 'Cash'); ?>
                                         </span>
                                     </td>
-                                    <td data-label="Reference" style="font-size: 0.85rem; color: var(--text-secondary);"><?php echo htmlspecialchars($p['notes'] ?: '-'); ?></td>
+                                    <td data-label="Reference" style="padding:1.25rem 1rem; font-size:0.85rem; color:var(--text-secondary); border-top-right-radius:12px; border-bottom-right-radius:12px;">
+                                        <?php 
+                                            $notes = $p['notes'];
+                                            if (strpos($notes, 'GCash Receipt:') !== false) {
+                                                $path = str_replace('GCash Receipt: ', '', $notes);
+                                                echo '<a href="'.$base_dir.$path.'" target="_blank" style="color:var(--primary); font-weight:800; text-decoration:none;"><i class="fas fa-image"></i> View Receipt</a>';
+                                            } else {
+                                                echo htmlspecialchars($notes ?: '-');
+                                            }
+                                        ?>
+                                    </td>
                                 </tr>
                                 <?php endforeach; ?>
                             </tbody>

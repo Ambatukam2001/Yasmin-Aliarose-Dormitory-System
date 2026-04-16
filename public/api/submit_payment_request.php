@@ -43,7 +43,8 @@ if ($method === 'GCash' && isset($_FILES['receipt'])) {
 // Log into payments table with 'Pending' note
 $stmt      = $conn->prepare("INSERT INTO payments (booking_id, amount, payment_method, notes, paid_at) VALUES (?, ?, ?, ?, NOW())");
 $zero_amount = 0.00;
-$notes     = ($method === 'GCash') ? "GCash Receipt: " . $receipt_path : "Cash-in Request at Admin";
+// Standardize prefix for UI detection
+$notes     = ($method === 'GCash') ? "GCash Receipt: " . $receipt_path : "Cash-in Request at Admin - Status: Pending Verification";
 
 if ($stmt->execute([$booking_id, $zero_amount, $method, $notes])) {
     echo json_encode(['success' => true]);
