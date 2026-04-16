@@ -32,12 +32,12 @@ try {
                 $_ENV[trim($k)] = trim($v);
             }
         }
-        $host     = getenv('DB_HOST') ?: 'localhost';
-        $port     = getenv('DB_PORT') ?: '3306';
+        $host     = getenv('DB_HOST') ?: 'aws-1-ap-northeast-1.pooler.supabase.com';
+        $port     = getenv('DB_PORT') ?: '6543';
         $dbname   = getenv('DB_NAME') ?: 'dormitory_db';
-        $username = getenv('DB_USER') ?: 'root';
-        $password = getenv('DB_PASS') ?: '';
-        $db_type  = getenv('DB_TYPE') ?: 'mysql';
+        $username = getenv('DB_USER') ?: 'postgres.zafdsyvthslobaalkwam';
+        $password = getenv('DB_PASS') ?: 'gumamaadelyasin2001';
+        $db_type  = getenv('DB_TYPE') ?: 'postgres';
 
         if ($db_type === 'pgsql' || strpos($host, 'supabase') !== false) {
             $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
