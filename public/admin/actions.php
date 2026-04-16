@@ -182,23 +182,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['update_status'])) {
         free_bed($conn, $id);
     }
 
-    $due_fragment = '';
+    $due_date = null;
     if ($payment_status === 'Confirmed' && $booking_status === 'Active') {
         $check = $conn->prepare("SELECT due_date FROM bookings WHERE id = ?");
         $check->execute([$id]);
         $row = $check->fetch();
         if (empty($row['due_date']) || $row['due_date'] === '0000-00-00') {
-            $due_fragment = ", due_date = '" . date('Y-m-d', strtotime('+1 month')) . "'";
+            $due_date = date('Y-m-d', strtotime('+1 month'));
         }
     }
 
-    $stmt = $conn->prepare(
-        "UPDATE bookings SET booking_status = ?, payment_status = ? {$due_fragment} WHERE id = ?"
-    );
-    $ok = $stmt->execute([$booking_status, $payment_status, $id]);
+    if ($due_date) {
+        $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ?, due_date = ? WHERE id = ?");
+        $ok = $stmt->execute([$booking_status, $payment_status, $due_date, $id]);
+    } else {
+        $stmt = $conn->prepare("UPDATE bookings SET booking_status = ?, payment_status = ? WHERE id = ?");
+        $ok = $stmt->execute([$booking_status, $payment_status, $id]);
+    }
 
     booking_redirect($ok ? 'status_updated' : 'error', $filter);
 }
+
 
 /* ── POST checkout=1 ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['checkout'])) {

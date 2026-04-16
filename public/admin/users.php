@@ -7,11 +7,15 @@ require_admin_auth();
 require_once 'actions.php';
 
 $route = 'users'; // sidebar will need to handle this
-$has_request_out_table = false;
-$check_ro_table = $conn->query("SHOW TABLES LIKE 'request_out_requests'");
-if ($check_ro_table && $check_ro_table->num_rows > 0) {
-    $has_request_out_table = true;
+
+$is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+if ($is_pgsql) {
+    $check_ro_table = $conn->query("SELECT 1 FROM information_schema.tables WHERE table_name = 'request_out_requests'")->fetch();
+} else {
+    $check_ro_table = $conn->query("SHOW TABLES LIKE 'request_out_requests'")->fetch();
 }
+$has_request_out_table = (bool)$check_ro_table;
+
 $users = $conn->query("
     SELECT b.*, 
            u.full_name as profile_name, 
@@ -23,7 +27,7 @@ $users = $conn->query("
     LEFT JOIN users u ON b.user_id = u.id 
     WHERE b.booking_status = 'Active' 
     ORDER BY COALESCE(u.full_name, b.full_name) ASC
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle transfer actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_transfer'])) {
@@ -31,23 +35,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_transfer'])) {
     $action = $_POST['action_transfer'];
 
     if ($action === 'decline') {
-        $conn->query("UPDATE transfer_requests SET status='Declined' WHERE id=" . $t_id);
+        $stmt = $conn->prepare("UPDATE transfer_requests SET status='Declined' WHERE id=?");
+        $stmt->execute([$t_id]);
         $_SESSION['flash_msg'] = "Transfer request declined.";
         header('Location: users.php');
         exit;
     }
 
     // ── ACCEPT: perform the actual bed move ──────────────────────────
-    // Enable mysqli exceptions so try/catch can catch DB errors
-    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
     try {
         // 1. Fetch the transfer request
         $stmt = $conn->prepare("SELECT * FROM transfer_requests WHERE id = ? AND status = 'Pending' LIMIT 1");
-        $stmt->bind_param("i", $t_id);
-        $stmt->execute();
-        $transfer = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmt->execute([$t_id]);
+        $transfer = $stmt->fetch();
 
         if (!$transfer) {
             $_SESSION['flash_msg'] = "Transfer request not found or already processed.";
@@ -60,18 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_transfer'])) {
 
         // 2. Get the current bed_id from the booking
         $stmt = $conn->prepare("SELECT bed_id FROM bookings WHERE id = ? LIMIT 1");
-        $stmt->bind_param("i", $booking_id);
-        $stmt->execute();
-        $booking    = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmt->execute([$booking_id]);
+        $booking    = $stmt->fetch();
         $old_bed_id = (int)($booking['bed_id'] ?? 0);
 
         // 3. Find an available bed in the requested room (exclude old bed in case it's in same room)
         $stmt = $conn->prepare("SELECT id FROM beds WHERE room_id = ? AND status = 'Available' AND id != ? LIMIT 1");
-        $stmt->bind_param("ii", $requested_room, $old_bed_id);
-        $stmt->execute();
-        $new_bed = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmt->execute([$requested_room, $old_bed_id]);
+        $new_bed = $stmt->fetch();
 
         if (!$new_bed) {
             $_SESSION['flash_msg'] = "No available beds in the requested room. Transfer could not be completed.";
@@ -82,25 +78,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_transfer'])) {
         $new_bed_id = (int)$new_bed['id'];
 
         // 4. Execute the bed swap
-        $conn->begin_transaction();
+        $conn->beginTransaction();
 
         // Free the old bed
         if ($old_bed_id) {
-            $conn->query("UPDATE beds SET status='Available' WHERE id=" . $old_bed_id);
+            $stmt = $conn->prepare("UPDATE beds SET status='Available' WHERE id=?");
+            $stmt->execute([$old_bed_id]);
         }
         // Mark the new bed Occupied
-        $conn->query("UPDATE beds SET status='Occupied' WHERE id=" . $new_bed_id);
+        $stmt = $conn->prepare("UPDATE beds SET status='Occupied' WHERE id=?");
+        $stmt->execute([$new_bed_id]);
         // Update the booking to point to the new bed
-        $conn->query("UPDATE bookings SET bed_id=" . $new_bed_id . " WHERE id=" . $booking_id);
+        $stmt = $conn->prepare("UPDATE bookings SET bed_id=? WHERE id=?");
+        $stmt->execute([$new_bed_id, $booking_id]);
         // Approve the transfer request
-        $conn->query("UPDATE transfer_requests SET status='Approved' WHERE id=" . $t_id);
+        $stmt = $conn->prepare("UPDATE transfer_requests SET status='Approved' WHERE id=?");
+        $stmt->execute([$t_id]);
 
         $conn->commit();
         $_SESSION['flash_msg'] = "✅ Transfer approved — resident moved to new bed successfully.";
 
     } catch (Exception $e) {
-        if ($conn->in_transaction) {
-            $conn->rollback();
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
         }
         $_SESSION['flash_msg'] = "❌ Transfer error: " . $e->getMessage();
     }
@@ -120,14 +120,10 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
         exit;
     }
 
-    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
-
     try {
         $stmt = $conn->prepare("SELECT * FROM request_out_requests WHERE id = ? AND status = 'Pending' LIMIT 1");
-        $stmt->bind_param("i", $req_id);
-        $stmt->execute();
-        $request_out = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmt->execute([$req_id]);
+        $request_out = $stmt->fetch();
 
         if (!$request_out) {
             $_SESSION['flash_msg'] = "Request-out not found or already processed.";
@@ -138,9 +134,7 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
         if ($action === 'decline') {
             $stmt = $conn->prepare("UPDATE request_out_requests SET status = 'Declined', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");
             $admin_id = intval($_SESSION['admin_id'] ?? 0);
-            $stmt->bind_param("ii", $admin_id, $req_id);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute([$admin_id, $req_id]);
 
             $_SESSION['flash_msg'] = "Request-out declined.";
             header('Location: users.php');
@@ -152,42 +146,34 @@ if ($has_request_out_table && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_P
         $request_out_date = $request_out['request_out_date'] ?? date('Y-m-d');
         $admin_id = intval($_SESSION['admin_id'] ?? 0);
 
-        $conn->begin_transaction();
+        $conn->beginTransaction();
 
         // Free bed and complete booking when booking exists
         if ($booking_id > 0) {
             $stmt = $conn->prepare("SELECT bed_id FROM bookings WHERE id = ? LIMIT 1");
-            $stmt->bind_param("i", $booking_id);
-            $stmt->execute();
-            $booking = $stmt->get_result()->fetch_assoc();
-            $stmt->close();
+            $stmt->execute([$booking_id]);
+            $booking = $stmt->fetch();
 
             $old_bed_id = intval($booking['bed_id'] ?? 0);
             if ($old_bed_id > 0) {
                 $stmt = $conn->prepare("UPDATE beds SET status = 'Available' WHERE id = ?");
-                $stmt->bind_param("i", $old_bed_id);
-                $stmt->execute();
-                $stmt->close();
+                $stmt->execute([$old_bed_id]);
             }
 
             $remarks = "Request-out approved by admin";
             $stmt = $conn->prepare("UPDATE bookings SET booking_status = 'Completed', move_out_date = ?, remarks = ? WHERE id = ?");
-            $stmt->bind_param("ssi", $request_out_date, $remarks, $booking_id);
-            $stmt->execute();
-            $stmt->close();
+            $stmt->execute([$request_out_date, $remarks, $booking_id]);
         }
 
         $stmt = $conn->prepare("UPDATE request_out_requests SET status = 'Approved', reviewed_by = ?, reviewed_at = NOW() WHERE id = ?");
-        $stmt->bind_param("ii", $admin_id, $req_id);
-        $stmt->execute();
-        $stmt->close();
+        $stmt->execute([$admin_id, $req_id]);
 
         $conn->commit();
         $_SESSION['flash_msg'] = "✅ Request-out approved successfully.";
 
     } catch (Exception $e) {
-        if ($conn->in_transaction) {
-            $conn->rollback();
+        if ($conn->inTransaction()) {
+            $conn->rollBack();
         }
         $_SESSION['flash_msg'] = "❌ Request-out error: " . $e->getMessage();
     }
@@ -209,7 +195,7 @@ $transfer_reqs = $conn->query("
     LEFT JOIN rooms req_r ON t.requested_room_id = req_r.id
     WHERE t.status = 'Pending'
     ORDER BY t.created_at DESC
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch all request-out records (pending + processed)
 $request_out_reqs = [];
@@ -227,7 +213,7 @@ if ($has_request_out_table) {
         LEFT JOIN beds bd ON b.bed_id = bd.id
         LEFT JOIN rooms rm ON bd.room_id = rm.id
         ORDER BY ro.created_at DESC
-    ")->fetch_all(MYSQLI_ASSOC);
+    ")->fetchAll(PDO::FETCH_ASSOC);
 }
 ?>
 <!DOCTYPE html>

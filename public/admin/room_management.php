@@ -17,12 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $bcount = (int)($_POST['beds_count'] ?? 4);
     if ($r_no && $bcount >= 0) {
         $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
-        $stmt->bind_param('sii', $r_no, $f_no, $bcount);
-        if ($stmt->execute()) {
-            $new_room_id = $stmt->insert_id;
+        if ($stmt->execute([$r_no, $f_no, $bcount])) {
+            $new_room_id = $conn->lastInsertId();
             for ($i = 1; $i <= $bcount; $i++) {
                 $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
-                $conn->query("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES ($new_room_id, $f_no, '$bno', 'Available')");
+                $stmt_bed = $conn->prepare("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES (?, ?, ?, 'Available')");
+                $stmt_bed->execute([$new_room_id, $f_no, $bno]);
             }
         }
     }
@@ -37,10 +37,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
     $f_no   = (int)($_POST['floor_no'] ?? 2);
     $status = $_POST['room_status'] ?? 'Available';
     if ($r_id && $r_no) {
-        // We aren't dynamically mutating bed counts here, just tracking the label/base config
         $stmt = $conn->prepare("UPDATE rooms SET room_no = ?, floor_no = ?, status = ? WHERE id = ?");
-        $stmt->bind_param('sisi', $r_no, $f_no, $status, $r_id);
-        $stmt->execute();
+        $stmt->execute([$r_no, $f_no, $status, $r_id]);
     }
     header('Location: room_management.php');
     exit;
@@ -50,26 +48,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
 if (isset($_GET['action']) && $_GET['action'] === 'delete_room') {
     $r_id = (int)($_GET['id'] ?? 0);
     if ($r_id) {
-        $conn->query("DELETE FROM beds WHERE room_id = $r_id");
-        $conn->query("DELETE FROM rooms WHERE id = $r_id");
+        $stmt1 = $conn->prepare("DELETE FROM beds WHERE room_id = ?");
+        $stmt1->execute([$r_id]);
+        $stmt2 = $conn->prepare("DELETE FROM rooms WHERE id = ?");
+        $stmt2->execute([$r_id]);
     }
     header('Location: room_management.php');
     exit;
 }
 
 // All rooms with live occupancy counts
-$rooms_res = $conn->query("
+$rooms = $conn->query("
     SELECT r.*,
         (SELECT COUNT(*) FROM beds b WHERE b.room_id = r.id) AS total_beds,
         (SELECT COUNT(*) FROM beds b WHERE b.room_id = r.id AND b.status = 'Occupied') AS occupied_count
     FROM rooms r
     ORDER BY r.floor_no ASC, r.room_no ASC
-");
-$rooms = $rooms_res ? $rooms_res->fetch_all(MYSQLI_ASSOC) : [];
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // All beds indexed by room_id
-$beds_res = $conn->query("SELECT * FROM beds ORDER BY bed_no ASC");
-$all_beds  = $beds_res ? $beds_res->fetch_all(MYSQLI_ASSOC) : [];
+$all_beds = $conn->query("SELECT * FROM beds ORDER BY bed_no ASC")->fetchAll(PDO::FETCH_ASSOC);
 $beds_by_room = [];
 foreach ($all_beds as $b) {
     $beds_by_room[$b['room_id']][] = $b;
@@ -90,13 +88,7 @@ function floor_label($n) {
 }
 
 /**
- * Build a single bed chip — used on initial PHP render.
- * JS mirror: createBedChipHtml() below must stay in sync.
- *
- * beds.status values:
- *   'Occupied'  → red chip, hide delete btn, show "Set Available"
- *   'Reserved'  → yellow chip, show delete btn, show "Set Occupied"
- *   'Available' → green chip, show delete btn, show "Set Occupied"
+ * Build a single bed chip
  */
 function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
     $isOccupied = ($status === 'Occupied');
@@ -211,40 +203,40 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
             background: #f0fdf4;
         }
         .rm-floor-pill--active {
-    background: #10b981;
-    border-color: #059669;
-    color: #fff;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
-}
-.rm-floor-pill--active:hover {
-    background: #059669;
-    border-color: #047857;
-    color: #fff;
-}
+            background: #10b981;
+            border-color: #059669;
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+        .rm-floor-pill--active:hover {
+            background: #059669;
+            border-color: #047857;
+            color: #fff;
+        }
 
-/* ── DARK THEME OVERRIDES FOR PILLS ── */
-.dark-theme .rm-floor-pill {
-    background: var(--off-white);
-    border-color: rgba(255,255,255,0.05);
-    color: var(--text-muted);
-}
-.dark-theme .rm-floor-pill:hover {
-    background: rgba(16, 185, 129, 0.1);
-    color: #34d399;
-    border-color: rgba(16, 185, 129, 0.2);
-}
-.dark-theme .rm-floor-pill--active {
-    background: rgba(16,185,129,0.15);
-    border-color: var(--primary);
-    color: #34d399;
-    box-shadow: none;
-}
-.dark-theme .rm-floor-pill--active:hover {
-    background: var(--primary);
-    color: #fff;
-}
-.dark-theme .rm-empty { color: var(--text-muted); }
-.dark-theme .rm-floor-icon { background: rgba(16, 185, 129, 0.15); color: var(--primary); }
+        /* ── DARK THEME OVERRIDES FOR PILLS ── */
+        .dark-theme .rm-floor-pill {
+            background: var(--off-white);
+            border-color: rgba(255,255,255,0.05);
+            color: var(--text-muted);
+        }
+        .dark-theme .rm-floor-pill:hover {
+            background: rgba(16, 185, 129, 0.1);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.2);
+        }
+        .dark-theme .rm-floor-pill--active {
+            background: rgba(16,185,129,0.15);
+            border-color: var(--primary);
+            color: #34d399;
+            box-shadow: none;
+        }
+        .dark-theme .rm-floor-pill--active:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+        .dark-theme .rm-empty { color: var(--text-muted); }
+        .dark-theme .rm-floor-icon { background: rgba(16, 185, 129, 0.15); color: var(--primary); }
     </style>
 </head>
 <body class="admin-page">
@@ -508,10 +500,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
 
     /* ══════════════════════════════════════════
        AJAX: toggle bed status
-       Valid transitions (per schema enum):
-         Available  → Occupied
-         Reserved   → Occupied
-         Occupied   → Available
     ══════════════════════════════════════════ */
     async function toggleBedStatus(bedId, newStatus, btnEl) {
         btnEl.disabled = true;
@@ -542,36 +530,22 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
         btnEl.disabled = false;
     }
 
-    /* Refresh chip DOM to reflect its new status */
+    /* Refresh chip DOM */
     function refreshChipUI(chip, bedId, status, reservedAt) {
         const isOccupied = status === 'Occupied';
         const isReserved = status === 'Reserved';
-
-        // Chip colour classes
         chip.classList.remove('rm-bed-chip--occupied','rm-bed-chip--reserved','rm-bed-chip--vacant');
         chip.classList.add(isOccupied ? 'rm-bed-chip--occupied' : isReserved ? 'rm-bed-chip--reserved' : 'rm-bed-chip--vacant');
-
-        // Dot
         const dot = chip.querySelector('.rm-bed-status-dot');
         dot.classList.remove('dot--occupied','dot--reserved','dot--vacant');
         dot.classList.add(isOccupied ? 'dot--occupied' : isReserved ? 'dot--reserved' : 'dot--vacant');
-
-        // Status text
-        let statusHtml = isOccupied
-            ? 'Occupied' + (reservedAt ? `<small>since ${reservedAt}</small>` : '')
-            : isReserved ? 'Reserved' : 'Available';
+        let statusHtml = isOccupied ? 'Occupied' + (reservedAt ? `<small>since ${reservedAt}</small>` : '') : isReserved ? 'Reserved' : 'Available';
         chip.querySelector('.rm-bed-status-text').innerHTML = statusHtml;
-
-        // Toggle button
         const btn = chip.querySelector('.rm-bed-toggle-btn');
         const nextStatus  = isOccupied ? 'Available' : 'Occupied';
         btn.className     = 'rm-bed-toggle-btn ' + (isOccupied ? 'rm-bed-toggle--release' : 'rm-bed-toggle--occupy');
-        btn.innerHTML     = isOccupied
-            ? '<i class="fas fa-lock-open"></i> Set Available'
-            : '<i class="fas fa-lock"></i> Set Occupied';
+        btn.innerHTML     = isOccupied ? '<i class="fas fa-lock-open"></i> Set Available' : '<i class="fas fa-lock"></i> Set Occupied';
         btn.setAttribute('onclick', `toggleBedStatus(${bedId}, '${nextStatus}', this)`);
-
-        // Delete button visibility (hide when occupied)
         const delBtn = chip.querySelector('.rm-bed-delete-btn');
         if (delBtn) delBtn.style.display = isOccupied ? 'none' : '';
     }
@@ -582,7 +556,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
     async function addBed(roomId, btnEl) {
         btnEl.disabled = true;
         btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
         try {
             const res  = await fetch('../api/add_bed.php', {
                 method : 'POST',
@@ -590,25 +563,15 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 body   : `room_id=${roomId}`
             });
             const data = await res.json();
-
             if (data.success) {
                 const grid  = document.getElementById('bed-grid-' + roomId);
                 const noMsg = document.getElementById('no-beds-msg-' + roomId);
                 if (noMsg) noMsg.style.display = 'none';
-
-                grid.insertAdjacentHTML('beforeend',
-                    createBedChipHtml(data.bed.id, data.bed.bed_no, 'Available', null, roomId)
-                );
-
+                grid.insertAdjacentHTML('beforeend', createBedChipHtml(data.bed.id, data.bed.bed_no, 'Available', null, roomId));
                 updateBedCountLabel(roomId, data.room_summary.total);
                 if (data.room_summary) updateRoomSummary(data.room_summary);
-            } else {
-                alert(data.message || 'Failed to add bed.');
-            }
-        } catch (e) {
-            alert('Network error. Please try again.');
-        }
-
+            } else { alert(data.message || 'Failed to add bed.'); }
+        } catch (e) { alert('Network error. Please try again.'); }
         btnEl.disabled = false;
         btnEl.innerHTML = '<i class="fas fa-plus"></i> Add Bed';
     }
@@ -618,10 +581,8 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
     ══════════════════════════════════════════ */
     async function deleteBed(bedId, roomId, btnEl) {
         if (!confirm('Remove this bed? This cannot be undone.')) return;
-
         btnEl.disabled = true;
         btnEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
         try {
             const res  = await fetch('../api/delete_bed.php', {
                 method : 'POST',
@@ -629,7 +590,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 body   : `bed_id=${bedId}`
             });
             const data = await res.json();
-
             if (data.success) {
                 const chip = document.getElementById('bed-chip-' + bedId);
                 chip.style.cssText += 'opacity:0;transform:scale(.85);transition:opacity .2s,transform .2s;';
@@ -637,86 +597,43 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                     chip.remove();
                     updateBedCountLabel(roomId, data.room_summary.total);
                     const grid = document.getElementById('bed-grid-' + roomId);
-                    if (!grid.children.length) {
-                        document.getElementById('no-beds-msg-' + roomId).style.display = '';
-                    }
+                    if (!grid.children.length) { document.getElementById('no-beds-msg-' + roomId).style.display = ''; }
                 }, 220);
-
                 if (data.room_summary) updateRoomSummary(data.room_summary);
             } else {
                 alert(data.message || 'Failed to delete bed.');
                 btnEl.disabled = false;
                 btnEl.innerHTML = '<i class="fas fa-times"></i>';
             }
-        } catch (e) {
-            alert('Network error. Please try again.');
-            btnEl.disabled = false;
-            btnEl.innerHTML = '<i class="fas fa-times"></i>';
-        }
+        } catch (e) { alert('Network error. Please try again.'); btnEl.disabled = false; btnEl.innerHTML = '<i class="fas fa-times"></i>'; }
     }
 
-    /* ══════════════════════════════════════════
-       Build bed chip HTML — mirrors PHP buildBedChipHtml()
-       Must stay in sync whenever PHP version changes.
-    ══════════════════════════════════════════ */
     function createBedChipHtml(bedId, bedNo, status, reservedAt, roomId) {
         const isOccupied = status === 'Occupied';
         const isReserved = status === 'Reserved';
-
         const chipClass   = isOccupied ? 'rm-bed-chip--occupied' : isReserved ? 'rm-bed-chip--reserved' : 'rm-bed-chip--vacant';
         const dotClass    = isOccupied ? 'dot--occupied' : isReserved ? 'dot--reserved' : 'dot--vacant';
         const nextStatus  = isOccupied ? 'Available' : 'Occupied';
         const toggleClass = isOccupied ? 'rm-bed-toggle--release' : 'rm-bed-toggle--occupy';
-        const toggleLabel = isOccupied
-            ? '<i class="fas fa-lock-open"></i> Set Available'
-            : '<i class="fas fa-lock"></i> Set Occupied';
-        const statusText  = isOccupied
-            ? 'Occupied' + (reservedAt ? `<small>since ${reservedAt}</small>` : '')
-            : isReserved ? 'Reserved' : 'Available';
-        const deleteBtn   = isOccupied ? '' :
-            `<button class="rm-bed-delete-btn" onclick="deleteBed(${bedId}, ${roomId}, this)" title="Remove bed"><i class="fas fa-times"></i></button>`;
-
-        return `
-        <div class="rm-bed-chip ${chipClass}" id="bed-chip-${bedId}">
-            ${deleteBtn}
-            <div class="rm-bed-chip-top">
-                <span class="rm-bed-label"><i class="fas fa-bed"></i> Bed ${bedNo}</span>
-                <span class="rm-bed-status-dot ${dotClass}"></span>
-            </div>
-            <span class="rm-bed-status-text">${statusText}</span>
-            <button class="rm-bed-toggle-btn ${toggleClass}"
-                    onclick="toggleBedStatus(${bedId}, '${nextStatus}', this)">
-                ${toggleLabel}
-            </button>
-        </div>`;
+        const toggleLabel = isOccupied ? '<i class="fas fa-lock-open"></i> Set Available' : '<i class="fas fa-lock"></i> Set Occupied';
+        const statusText  = isOccupied ? 'Occupied' + (reservedAt ? `<small>since ${reservedAt}</small>` : '') : isReserved ? 'Reserved' : 'Available';
+        const deleteBtn   = isOccupied ? '' : `<button class="rm-bed-delete-btn" onclick="deleteBed(${bedId}, ${roomId}, this)" title="Remove bed"><i class="fas fa-times"></i></button>`;
+        return `<div class="rm-bed-chip ${chipClass}" id="bed-chip-${bedId}">${deleteBtn}<div class="rm-bed-chip-top"><span class="rm-bed-label"><i class="fas fa-bed"></i> Bed ${bedNo}</span><span class="rm-bed-status-dot ${dotClass}"></span></div><span class="rm-bed-status-text">${statusText}</span><button class="rm-bed-toggle-btn ${toggleClass}" onclick="toggleBedStatus(${bedId}, '${nextStatus}', this)">${toggleLabel}</button></div>`;
     }
 
-    /* ══════════════════════════════════════════
-       Live-update the room summary row
-    ══════════════════════════════════════════ */
     function updateRoomSummary(s) {
         const wrap = document.querySelector(`.rm-row-wrap[data-room-id="${s.room_id}"]`);
         if (!wrap) return;
-
         wrap.querySelector('.rm-room-meta').textContent = `${s.occupied}/${s.total} beds occupied`;
-
         const fill = wrap.querySelector('.rm-progress-fill');
         fill.style.width = s.pct + '%';
         fill.classList.toggle('rm-progress-fill--full', s.is_full);
         wrap.querySelector('.rm-progress-label').textContent = s.pct + '%';
-
         const badge = wrap.querySelector('.rm-badge');
         badge.className = 'rm-badge';
-        if (s.is_full) {
-            badge.classList.add('rm-badge--full');
-            badge.textContent = 'Full';
-        } else if (s.vacancies === s.total) {
-            badge.classList.add('rm-badge--vacant');
-            badge.textContent = 'Vacant';
-        } else {
-            badge.classList.add('rm-badge--partial');
-            badge.textContent = `${s.vacancies} slot${s.vacancies !== 1 ? 's' : ''} left`;
-        }
+        if (s.is_full) { badge.classList.add('rm-badge--full'); badge.textContent = 'Full'; }
+        else if (s.vacancies === s.total) { badge.classList.add('rm-badge--vacant'); badge.textContent = 'Vacant'; }
+        else { badge.classList.add('rm-badge--partial'); badge.textContent = `${s.vacancies} slot${s.vacancies !== 1 ? 's' : ''} left`; }
     }
 
     function updateBedCountLabel(roomId, total) {
@@ -724,9 +641,6 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
         if (lbl) lbl.textContent = total + ' bed' + (total !== 1 ? 's' : '');
     }
 
-    /* ══════════════════════════════════════════
-       Modals
-    ══════════════════════════════════════════ */
     function openAddModal()  { document.getElementById('addModal').classList.add('open'); }
     function closeModal(id)  { document.getElementById(id).classList.remove('open'); }
 
@@ -738,38 +652,23 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
         document.getElementById('editModal').classList.add('open');
     }
 
-    /* ══════════════════════════════════════════
-       Floor filter pills
-    ══════════════════════════════════════════ */
-    let activeFloor = 'all'; // tracks current floor filter
+    let activeFloor = 'all';
 
     function filterByFloor(floor, pillEl) {
         activeFloor = floor;
-
-        // Update active pill style
         document.querySelectorAll('.rm-floor-pill').forEach(p => p.classList.remove('rm-floor-pill--active'));
         pillEl.classList.add('rm-floor-pill--active');
-
-        // Show/hide floor sections
         document.querySelectorAll('.rm-floor-section').forEach(section => {
             const match = floor === 'all' || section.dataset.floor == floor;
             section.style.display = match ? '' : 'none';
         });
-
-        // Re-apply any active search query on top
-        const q = (document.getElementById('roomSearchAdmin').value ||
-                   document.getElementById('roomSearchAdminMobile').value).toLowerCase().trim();
+        const q = (document.getElementById('roomSearchAdmin').value || document.getElementById('roomSearchAdminMobile').value).toLowerCase().trim();
         if (q) applySearch(q);
     }
 
-    /* ══════════════════════════════════════════
-       Search
-    ══════════════════════════════════════════ */
     function applySearch(q) {
         document.querySelectorAll('.rm-floor-section').forEach(section => {
-            // Skip sections already hidden by the floor filter
             if (activeFloor !== 'all' && section.dataset.floor != activeFloor) return;
-
             let visible = 0;
             section.querySelectorAll('.rm-row-wrap').forEach(wrap => {
                 const show = wrap.querySelector('.rm-room-name').innerText.toLowerCase().includes(q);
@@ -780,28 +679,22 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
         });
     }
 
+    function filterRoomsAdmin() { applyFilter(document.getElementById('roomSearchAdmin').value.toLowerCase().trim()); }
+    function filterRoomsAdminMobile() { applyFilter(document.getElementById('roomSearchAdminMobile').value.toLowerCase().trim()); }
+
     function applyFilter(q) {
-        // First re-apply floor filter so hidden floors stay hidden
         document.querySelectorAll('.rm-floor-section').forEach(section => {
-            if (activeFloor !== 'all' && section.dataset.floor != activeFloor) {
-                section.style.display = 'none';
-                return;
-            }
+            if (activeFloor !== 'all' && section.dataset.floor != activeFloor) { section.style.display = 'none'; return; }
             section.style.display = '';
         });
         if (q) applySearch(q);
         else {
-            // No search query — just restore floor-filtered state
             document.querySelectorAll('.rm-floor-section').forEach(section => {
                 if (activeFloor !== 'all' && section.dataset.floor != activeFloor) return;
                 section.querySelectorAll('.rm-row-wrap').forEach(w => w.style.display = '');
             });
         }
     }
-
-    function filterRoomsAdmin()       { applyFilter(document.getElementById('roomSearchAdmin').value.toLowerCase().trim()); }
-    function filterRoomsAdminMobile() { applyFilter(document.getElementById('roomSearchAdminMobile').value.toLowerCase().trim()); }
     </script>
-    <script src="../assets/js/admin.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

@@ -9,60 +9,74 @@ if (!isset($_SESSION['user_id'])) {
     redirect('login.php');
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id = (int)$_SESSION['user_id'];
 $success_msg = "";
 $error_msg = "";
-$has_request_out_table = false;
-$check_ro_table = $conn->query("SHOW TABLES LIKE 'request_out_requests'");
-if ($check_ro_table && $check_ro_table->num_rows > 0) {
-    $has_request_out_table = true;
+
+$is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+
+function table_exists(PDO $conn, string $table, bool $is_pgsql): bool {
+    if ($is_pgsql) {
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name = ?");
+    } else {
+        $stmt = $conn->prepare("SHOW TABLES LIKE ?");
+    }
+    $stmt->execute([$table]);
+    return (bool)$stmt->fetchColumn();
 }
+
+function column_exists(PDO $conn, string $table, string $column, bool $is_pgsql): bool {
+    if ($is_pgsql) {
+        $stmt = $conn->prepare("SELECT COUNT(*) FROM information_schema.columns WHERE table_name = ? AND column_name = ?");
+        $stmt->execute([$table, $column]);
+    } else {
+        $stmt = $conn->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $stmt->execute([$column]);
+    }
+    return (bool)$stmt->fetchColumn();
+}
+
+$has_request_out_table = table_exists($conn, 'request_out_requests', $is_pgsql);
 
 // Handle Request-Out Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_request_out'])) {
     if (!$has_request_out_table) {
         $error_msg = "Request-out module is not initialized yet. Please run setup first.";
     } else {
-    $request_booking_id = intval($_POST['request_out_booking_id'] ?? 0);
-    $request_out_date = trim($_POST['request_out_date'] ?? '');
-    $request_out_reason = trim($_POST['request_out_reason'] ?? '');
+        $request_booking_id = intval($_POST['request_out_booking_id'] ?? 0);
+        $request_out_date = trim($_POST['request_out_date'] ?? '');
+        $request_out_reason = trim($_POST['request_out_reason'] ?? '');
 
-    if (!$request_booking_id || $request_out_date === '' || $request_out_reason === '') {
-        $error_msg = "Please complete all Request-Out fields.";
-    } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $request_out_date)) {
-        $error_msg = "Please provide a valid request-out date.";
-    } else {
-        // Ensure booking belongs to current user and is active-like
-        $check_booking = $conn->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_status IN ('Active', 'Confirmed', 'accepted') LIMIT 1");
-        $check_booking->bind_param("ii", $request_booking_id, $user_id);
-        $check_booking->execute();
-        $booking_ok = $check_booking->get_result()->fetch_assoc();
-        $check_booking->close();
-
-        if (!$booking_ok) {
-            $error_msg = "Only active bookings can submit a request-out.";
+        if (!$request_booking_id || $request_out_date === '' || $request_out_reason === '') {
+            $error_msg = "Please complete all Request-Out fields.";
+        } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $request_out_date)) {
+            $error_msg = "Please provide a valid request-out date.";
         } else {
-            // Prevent duplicate pending request-outs for the same booking
-            $dup_stmt = $conn->prepare("SELECT id FROM request_out_requests WHERE booking_id = ? AND status = 'Pending' LIMIT 1");
-            $dup_stmt->bind_param("i", $request_booking_id);
-            $dup_stmt->execute();
-            $dup = $dup_stmt->get_result()->fetch_assoc();
-            $dup_stmt->close();
+            // Ensure booking belongs to current user and is active-like
+            $check_booking = $conn->prepare("SELECT id FROM bookings WHERE id = ? AND user_id = ? AND booking_status IN ('Active', 'Confirmed', 'accepted') LIMIT 1");
+            $check_booking->execute([$request_booking_id, $user_id]);
+            $booking_ok = $check_booking->fetch(PDO::FETCH_ASSOC);
 
-            if ($dup) {
-                $error_msg = "You already have a pending request-out for this booking.";
+            if (!$booking_ok) {
+                $error_msg = "Only active bookings can submit a request-out.";
             } else {
-                $insert_req = $conn->prepare("INSERT INTO request_out_requests (user_id, booking_id, request_out_date, reason, status) VALUES (?, ?, ?, ?, 'Pending')");
-                $insert_req->bind_param("iiss", $user_id, $request_booking_id, $request_out_date, $request_out_reason);
-                if ($insert_req->execute()) {
-                    $success_msg = "Request-out submitted. Admin will review it soon.";
+                // Prevent duplicate pending request-outs for the same booking
+                $dup_stmt = $conn->prepare("SELECT id FROM request_out_requests WHERE booking_id = ? AND status = 'Pending' LIMIT 1");
+                $dup_stmt->execute([$request_booking_id]);
+                $dup = $dup_stmt->fetch(PDO::FETCH_ASSOC);
+
+                if ($dup) {
+                    $error_msg = "You already have a pending request-out for this booking.";
                 } else {
-                    $error_msg = "Failed to submit request-out. Please try again.";
+                    $insert_req = $conn->prepare("INSERT INTO request_out_requests (user_id, booking_id, request_out_date, reason, status) VALUES (?, ?, ?, ?, 'Pending')");
+                    if ($insert_req->execute([$user_id, $request_booking_id, $request_out_date, $request_out_reason])) {
+                        $success_msg = "Request-out submitted. Admin will review it soon.";
+                    } else {
+                        $error_msg = "Failed to submit request-out. Please try again.";
+                    }
                 }
-                $insert_req->close();
             }
         }
-    }
     }
 }
 
@@ -78,34 +92,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
         $error_msg = "Please provide a valid full name and email address.";
     } else {
         $stmt = $conn->prepare("UPDATE users SET full_name=?, email=?, phone=?, address=?, emergency_contact=? WHERE id=?");
-        $stmt->bind_param("sssssi", $full_name, $email, $phone, $address, $emergency_contact, $user_id);
         
-        if ($stmt->execute()) {
-            // Keep booking records consistent with user profile (if booking table has these columns)
-            $has_bookings_full_name = $conn->query("SHOW COLUMNS FROM bookings LIKE 'full_name'");
-            $has_bookings_contact_number = $conn->query("SHOW COLUMNS FROM bookings LIKE 'contact_number'");
-            if (($has_bookings_full_name && $has_bookings_full_name->num_rows > 0) || ($has_bookings_contact_number && $has_bookings_contact_number->num_rows > 0)) {
+        if ($stmt->execute([$full_name, $email, $phone, $address, $emergency_contact, $user_id])) {
+            // Keep booking records consistent with user profile
+            $has_full_name = column_exists($conn, 'bookings', 'full_name', $is_pgsql);
+            $has_phone     = column_exists($conn, 'bookings', 'contact_number', $is_pgsql);
+
+            if ($has_full_name || $has_phone) {
                 $sets = [];
-                $types = '';
                 $vals = [];
-                if ($has_bookings_full_name && $has_bookings_full_name->num_rows > 0) {
+                if ($has_full_name) {
                     $sets[] = "full_name = ?";
-                    $types .= 's';
                     $vals[] = $full_name;
                 }
-                if ($has_bookings_contact_number && $has_bookings_contact_number->num_rows > 0) {
+                if ($has_phone) {
                     $sets[] = "contact_number = ?";
-                    $types .= 's';
                     $vals[] = $phone;
                 }
                 if (!empty($sets)) {
-                    $types .= 'i';
                     $vals[] = $user_id;
                     $sql = "UPDATE bookings SET " . implode(', ', $sets) . " WHERE user_id = ?";
                     $sync = $conn->prepare($sql);
-                    $sync->bind_param($types, ...$vals);
-                    $sync->execute();
-                    $sync->close();
+                    $sync->execute($vals);
                 }
             }
 
@@ -118,9 +126,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_profile'])) {
 
 // Fetch User Info
 $stmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user_info = $stmt->get_result()->fetch_assoc();
+$stmt->execute([$user_id]);
+$user_info = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // Fetch Rent Statistics & Overdue Status
 $total_paid = 0;
@@ -136,15 +143,14 @@ $stmt = $conn->prepare("SELECT b.*, r.room_no, bd.bed_no
     WHERE b.user_id = ? 
     AND b.booking_status != 'Cancelled'
     ORDER BY b.created_at DESC LIMIT 1");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$res_bookings = $stmt->get_result();
+$stmt->execute([$user_id]);
+$res_bookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-while ($row = $res_bookings->fetch_assoc()) {
+foreach ($res_bookings as $row) {
     $status = strtolower((string) ($row['booking_status'] ?? ''));
     // Check if overdue: Must be Active, have a due date, and that date must be in the past
     $row['is_overdue'] = false;
-    if (in_array($status, ['active', 'confirmed', 'accepted'], true) && !empty($row['due_date'])) {
+    if (in_array($status, ['active', 'confirmed', 'accepted'], true) && !empty($row['due_date']) && $row['due_date'] !== '0000-00-00') {
         if (strtotime($row['due_date']) < time()) {
             $row['is_overdue'] = true;
             $overdue_count++;
@@ -154,9 +160,8 @@ while ($row = $res_bookings->fetch_assoc()) {
     
     // Fetch total paid for this booking
     $stmt_pay = $conn->prepare("SELECT SUM(amount) as total FROM payments WHERE booking_id = ?");
-    $stmt_pay->bind_param("i", $row['id']);
-    $stmt_pay->execute();
-    $pay_res = $stmt_pay->get_result()->fetch_assoc();
+    $stmt_pay->execute([$row['id']]);
+    $pay_res = $stmt_pay->fetch(PDO::FETCH_ASSOC);
     $row['total_paid'] = $pay_res['total'] ?? 0;
     
     $total_paid += floatval($row['total_paid']);
@@ -164,31 +169,23 @@ while ($row = $res_bookings->fetch_assoc()) {
 }
 
 // Fetch Rent/Payment History
-$payments = [];
 $stmt = $conn->prepare("SELECT p.*, bd.bed_no FROM payments p JOIN bookings b ON p.booking_id = b.id LEFT JOIN beds bd ON b.bed_id = bd.id WHERE b.user_id = ? ORDER BY p.paid_at DESC");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$res_payments = $stmt->get_result();
-while($row = $res_payments->fetch_assoc()){
-    $payments[] = $row;
-}
+$stmt->execute([$user_id]);
+$payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch user request-out history
 $request_outs = [];
 if ($has_request_out_table) {
     $stmt = $conn->prepare("SELECT * FROM request_out_requests WHERE user_id = ? ORDER BY created_at DESC");
-    $stmt->bind_param("i", $user_id);
-    $stmt->execute();
-    $res_request_out = $stmt->get_result();
-    while ($row = $res_request_out->fetch_assoc()) {
-        $request_outs[] = $row;
-    }
+    $stmt->execute([$user_id]);
+    $request_outs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
 $page_title = "My Dashboard";
 include 'api/head.php';
 include 'api/header.php';
 ?>
+
 
 <style>
     .dashboard-container { max-width: 1200px; margin: 2rem auto; padding: 0 1.25rem; }

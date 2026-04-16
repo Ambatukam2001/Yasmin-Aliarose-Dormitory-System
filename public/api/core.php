@@ -78,13 +78,20 @@ function redirect($path) {
  * Database Helpers (Optional but cleaner)
  */
 function get_stats($conn) {
+    // Check if we are using PostgreSQL for compatible syntax
+    $is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+    
+    $due_week_q = $is_pgsql 
+        ? "SELECT COUNT(*) FROM bookings WHERE due_date <= (CURRENT_DATE + INTERVAL '7 days') AND booking_status = 'Active'"
+        : "SELECT COUNT(*) FROM bookings WHERE due_date <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND booking_status = 'Active'";
+
     return [
-        'rooms' => $conn->query("SELECT COUNT(*) FROM rooms")->fetch_row()[0] ?: 0,
-        'beds' => $conn->query("SELECT COUNT(*) FROM beds")->fetch_row()[0] ?: 0,
-        'occupied' => $conn->query("SELECT COUNT(*) FROM beds WHERE status = 'Occupied'")->fetch_row()[0] ?: 0,
-        'potential_revenue' => $conn->query("SELECT SUM(monthly_rent) FROM bookings WHERE payment_status = 'Confirmed' AND booking_status = 'Active'")->fetch_row()[0] ?: 0,
-        'overdue_count' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date < NOW() AND booking_status = 'Active' AND payment_status = 'Confirmed'")->fetch_row()[0] ?: 0,
-        'due_this_week' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date <= DATE_ADD(NOW(), INTERVAL 7 DAY) AND booking_status = 'Active'")->fetch_row()[0] ?: 0
+        'rooms' => $conn->query("SELECT COUNT(*) FROM rooms")->fetchColumn() ?: 0,
+        'beds' => $conn->query("SELECT COUNT(*) FROM beds")->fetchColumn() ?: 0,
+        'occupied' => $conn->query("SELECT COUNT(*) FROM beds WHERE status = 'Occupied'")->fetchColumn() ?: 0,
+        'potential_revenue' => $conn->query("SELECT SUM(monthly_rent) FROM bookings WHERE payment_status = 'Confirmed' AND booking_status = 'Active'")->fetchColumn() ?: 0,
+        'overdue_count' => $conn->query("SELECT COUNT(*) FROM bookings WHERE due_date < CURRENT_DATE AND booking_status = 'Active' AND payment_status = 'Confirmed'")->fetchColumn() ?: 0,
+        'due_this_week' => $conn->query($due_week_q)->fetchColumn() ?: 0
     ];
 }
 ?>

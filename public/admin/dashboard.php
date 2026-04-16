@@ -22,7 +22,7 @@ $recent_bookings = $conn->query("SELECT b.*, bd.bed_no, r.room_no, r.floor_no
                                 FROM bookings b 
                                 LEFT JOIN beds bd ON b.bed_id = bd.id 
                                 LEFT JOIN rooms r ON bd.room_id = r.id 
-                                ORDER BY b.created_at DESC LIMIT 5")->fetch_all(MYSQLI_ASSOC);
+                                ORDER BY b.created_at DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Chart 1: Floor capacity (occupied vs available per floor)
 $floor_stats = $conn->query("
@@ -34,14 +34,14 @@ $floor_stats = $conn->query("
     JOIN rooms r ON b.room_id = r.id
     GROUP BY r.floor_no
     ORDER BY r.floor_no ASC
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Chart 2: Residents by booking status
 $booking_status_stats = $conn->query("
     SELECT booking_status, COUNT(*) as cnt 
     FROM bookings 
     GROUP BY booking_status
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Chart 3: Payment status (paid vs unpaid active residents)
 $payment_stats = $conn->query("
@@ -49,7 +49,7 @@ $payment_stats = $conn->query("
     FROM bookings 
     WHERE booking_status = 'Active'
     GROUP BY payment_status
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="en">

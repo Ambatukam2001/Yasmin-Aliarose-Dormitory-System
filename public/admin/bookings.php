@@ -11,18 +11,23 @@ include __DIR__ . '/actions.php';
 $status_filter = $_GET['status'] ?? 'all';
 $stats         = get_stats($conn);
 
+$is_pgsql = (strpos($conn->getAttribute(PDO::ATTR_DRIVER_NAME), 'pgsql') !== false);
+
 $where = match($status_filter) {
     'pending'   => " WHERE b.booking_status='Pending'",
     'confirmed' => " WHERE b.booking_status='Active' AND b.payment_status='Confirmed'",
-    'overdue'   => " WHERE b.due_date < NOW() AND b.booking_status='Active'",
+    'overdue'   => " WHERE b.due_date < CURRENT_DATE AND b.booking_status='Active'",
     'cancelled' => " WHERE b.booking_status='Cancelled'",
     'completed' => " WHERE b.booking_status='Completed'",
     default     => ''
 };
+
+$overdue_expr = $is_pgsql ? "(CURRENT_DATE - b.due_date)" : "DATEDIFF(NOW(), b.due_date)";
+
 $bookings = $conn->query("
     SELECT b.*, bd.bed_no, r.room_no, r.floor_no,
            u.full_name as profile_name, u.phone as profile_phone, u.email as profile_email,
-           DATEDIFF(NOW(), b.due_date) AS days_overdue,
+           $overdue_expr AS days_overdue,
            (SELECT COUNT(*) FROM payments p WHERE p.booking_id = b.id) AS payment_count,
            (SELECT SUM(p.amount) FROM payments p WHERE p.booking_id = b.id) AS total_paid
     FROM bookings b
@@ -31,12 +36,12 @@ $bookings = $conn->query("
     LEFT JOIN users u ON b.user_id = u.id
     $where
     ORDER BY b.created_at DESC
-")->fetch_all(MYSQLI_ASSOC);
+")->fetchAll(PDO::FETCH_ASSOC);
 
-$pending_count   = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Pending'")->fetch_row()[0] ?? 0);
-$active_count    = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed'")->fetch_row()[0] ?? 0);
+$pending_count   = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Pending'")->fetchColumn() ?: 0);
+$active_count    = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Active' AND payment_status='Confirmed'")->fetchColumn() ?: 0);
 $overdue_count   = (int)($stats['overdue_count'] ?? 0);
-$completed_count = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Completed'")->fetch_row()[0] ?? 0);
+$completed_count = (int)($conn->query("SELECT COUNT(*) FROM bookings WHERE booking_status='Completed'")->fetchColumn() ?: 0);
 
 $flash = $_GET['flash'] ?? '';
 $flash_map = [
@@ -709,9 +714,9 @@ var PAYMENT_DATA   = <?php
     $all_payments = new stdClass();
     if (!empty($bookings)) {
         $id_list = implode(',', array_map('intval', array_column($bookings, 'id')));
-        $rows = $conn->query("SELECT booking_id, amount, paid_at, notes, receipt_path FROM payments WHERE booking_id IN ($id_list) ORDER BY paid_at DESC");
+        $rows = $conn->query("SELECT booking_id, amount, paid_at, notes, receipt_path FROM payments WHERE booking_id IN ($id_list) ORDER BY paid_at DESC")->fetchAll(PDO::FETCH_ASSOC);
         if ($rows) {
-            while ($r = $rows->fetch_assoc()) {
+            foreach ($rows as $r) {
                 $bid = $r['booking_id'];
                 if (!isset($all_payments->$bid)) {
                     $all_payments->$bid = [];
