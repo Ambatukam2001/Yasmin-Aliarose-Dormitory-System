@@ -41,9 +41,17 @@ try {
     $new_password = password_hash('admin123', PASSWORD_DEFAULT);
     $ins = $conn->prepare("INSERT INTO admins (username, password) VALUES ('admin', ?)");
     $ins->execute([$new_password]);
-
     echo "<p style='color:green; font-weight:bold;'>✅ Success! Admin account 'admin' recreated.</p>";
-    echo "<p>Your password is now: <span style='background:#eee; padding:2px 6px; border-radius:4px;'>admin123</span></p>";
+
+    // 3. Create Resident User for testing
+    $user_pass = password_hash('resident123', PASSWORD_DEFAULT);
+    $conn->prepare("DELETE FROM users WHERE username = 'resident'")->execute();
+    $ins_user = $conn->prepare("INSERT INTO users (username, password, full_name, email, phone) VALUES ('resident', ?, 'Test Resident', 'resident@example.com', '09123456789')");
+    $ins_user->execute([$user_pass]);
+    echo "<p style='color:blue; font-weight:bold;'>✅ Success! Resident account 'resident' created.</p>";
+    
+    echo "<p>Admin: admin / admin123<br>Resident: resident / resident123</p>";
+
     
     echo "<div style='margin-top:2rem;'>";
     echo "<a href='login.php' style='background:#10b981; color:white; padding:0.75rem 1.5rem; text-decoration:none; border-radius:8px; font-weight:bold;'>Go to Login Page</a>";
