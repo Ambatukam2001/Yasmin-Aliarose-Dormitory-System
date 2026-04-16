@@ -66,10 +66,11 @@ try {
 
 } catch (PDOException $e) {
     $msg = $e->getMessage();
+    $source = !empty($database_url) ? "Vercel DATABASE_URL" : "Local config.env";
     if (strpos($msg, 'password authentication failed') !== false) {
-        die("Connection failed: Authentication error. Please ensure your DB_USER is correctly formatted (e.g., postgres.project-ref for pooling) and your password is correct.");
+        die("Connection failed (Source: $source): Authentication error. Please ensure your DB_USER is correctly formatted (e.g., postgres.project-ref for pooling) and your password is correct.");
     }
-    die("Connection failed: " . $msg);
+    die("Connection failed (Source: $source): " . $msg);
 }
 
 $site_name    = 'Yasmin & Aliarose Dormitory';
