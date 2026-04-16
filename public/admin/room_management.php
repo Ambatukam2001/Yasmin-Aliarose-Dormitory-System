@@ -16,16 +16,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $f_no   = (int)($_POST['floor_no'] ?? 2);
     $bcount = (int)($_POST['beds_count'] ?? 4);
     if ($r_no && $bcount >= 0) {
-        $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
-        if ($stmt->execute([$r_no, $f_no, $bcount])) {
-            $new_room_id = $conn->lastInsertId();
-            for ($i = 1; $i <= $bcount; $i++) {
-                $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
-                $stmt_bed = $conn->prepare("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES (?, ?, ?, 'Available')");
-                $stmt_bed->execute([$new_room_id, $f_no, $bno]);
+        $check = $conn->prepare("SELECT id FROM rooms WHERE room_no = ?");
+        $check->execute([$r_no]);
+        if ($check->fetch()) {
+            $_SESSION['flash_msg'] = "Error: Room number $r_no already exists.";
+        } else {
+            try {
+                $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
+                if ($stmt->execute([$r_no, $f_no, $bcount])) {
+                    $new_room_id = $conn->lastInsertId();
+                    for ($i = 1; $i <= $bcount; $i++) {
+                        $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
+                        $stmt_bed = $conn->prepare("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES (?, ?, ?, 'Available')");
+                        $stmt_bed->execute([$new_room_id, $f_no, $bno]);
+                    }
+                    $_SESSION['flash_msg'] = "Room $r_no added successfully.";
+                }
+            } catch (Exception $e) {
+                $_SESSION['flash_msg'] = "Error adding room: " . $e->getMessage();
             }
         }
     }
+
     header('Location: room_management.php');
     exit;
 }
