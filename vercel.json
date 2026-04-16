@@ -6,8 +6,16 @@
   },
   "routes": [
     {
-      "src": "/(css|js|images|uploads)/(.*)",
-      "dest": "/public/$1/$2"
+      "src": "/assets/(.*)",
+      "dest": "/public/assets/$1"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/public/uploads/$1"
+    },
+    {
+      "src": "/favicon.ico",
+      "dest": "/public/assets/images/favicon.ico"
     },
     {
       "src": "/(.*)",
