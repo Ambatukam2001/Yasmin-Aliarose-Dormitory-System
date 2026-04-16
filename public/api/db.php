@@ -18,10 +18,6 @@ try {
         $username = $parsed['user']     ?? '';
         $password = isset($parsed['pass']) ? urldecode($parsed['pass']) : '';
 
-        // SUPABASE POOLER REQUIREMENT: 
-        // If port is 6543, ensure project-ref is in the username if we know it.
-        // However, usually DATABASE_URL should already be correct.
-
         $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
 
     } else {
@@ -62,7 +58,6 @@ try {
     // Set timezone and search path
     if (strpos($dsn, 'pgsql') === 0) {
         $conn->exec("SET TIME ZONE 'Asia/Manila'");
-        // Ensure we are using the public schema by default
         $conn->exec("SET search_path TO public");
     } else {
         $conn->exec("SET time_zone = '+08:00'");
@@ -70,7 +65,6 @@ try {
     date_default_timezone_set('Asia/Manila');
 
 } catch (PDOException $e) {
-    // Re-check username if authentication fails — common Supabase issue
     $msg = $e->getMessage();
     if (strpos($msg, 'password authentication failed') !== false) {
         die("Connection failed: Authentication error. Please ensure your DB_USER is correctly formatted (e.g., postgres.project-ref for pooling) and your password is correct.");
