@@ -5,7 +5,7 @@
 
 // Password reads from Vercel Environment Variable: DB_PASS
 // Set it in: Vercel Dashboard → Project → Settings → Environment Variables
-$password = getenv('DB_PASS') ?: ($_SERVER['DB_PASS'] ?? $_ENV['DB_PASS'] ?? '');
+$password = getenv('postgresql://postgres.zafdsyvthslobaalkwam:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres') ?: ($_SERVER['postgresql://postgres.zafdsyvthslobaalkwam:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres'] ?? $_ENV['postgresql://postgres.zafdsyvthslobaalkwam:[YOUR-PASSWORD]@aws-1-ap-northeast-1.pooler.supabase.com:6543/postgres'] ?? '');
 
 // Supabase Transaction Pooler connection details
 $host     = 'aws-1-ap-northeast-1.pooler.supabase.com';
