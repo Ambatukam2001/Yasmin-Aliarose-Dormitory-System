@@ -12,11 +12,11 @@ try {
         // Format: postgresql://user:password@host:port/dbname
         $parsed = parse_url($database_url);
 
-        $host     = $parsed['host']     ?? '';
+        $host     = $parsed['host']     ?? 'aws-1-ap-northeast-1.pooler.supabase.com';
         $port     = $parsed['port']     ?? 6543;
         $dbname   = ltrim($parsed['path'] ?? 'postgres', '/');
-        $username = $parsed['user']     ?? '';
-        $password = isset($parsed['pass']) ? urldecode($parsed['pass']) : '';
+        $username = $parsed['user']     ?? 'postgres.zafdsyvthslobaalkwam';
+        $password = isset($parsed['pass']) ? urldecode($parsed['pass']) : 'gumamaadelyasin2001';
 
         $dsn = "pgsql:host={$host};port={$port};dbname={$dbname};sslmode=require";
 
