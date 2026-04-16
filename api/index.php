@@ -10,19 +10,26 @@ if ($uri === '/' || $uri === '') {
     $uri = '/index.php';
 }
 
-$file = realpath(__DIR__ . '/../public' . $uri);
+// Simplified routing for speed
+$public_path = __DIR__ . '/../public';
+$file = $public_path . $uri;
 
-if (!$file || !file_exists($file)) {
-    $fileFallback = realpath(__DIR__ . '/../public' . $uri . '.php');
-    if ($fileFallback && file_exists($fileFallback)) {
-        $file = $fileFallback;
-        $uri = $uri . '.php';
+// If explicitly requesting a directory or empty, go to index.php
+if (is_dir($file) || $uri === '/' || $uri === '') {
+    $file = $public_path . '/index.php';
+}
+
+// Fallback for missing .php extension
+if (!file_exists($file)) {
+    if (file_exists($file . '.php')) {
+        $file .= '.php';
     } else {
         header("HTTP/1.0 404 Not Found");
         echo "404 Not Found";
         exit;
     }
 }
+
 
 if (pathinfo($file, PATHINFO_EXTENSION) === 'php') {
     $_SERVER['SCRIPT_FILENAME'] = $file;
