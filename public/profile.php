@@ -944,72 +944,75 @@ include 'api/header.php';
                 <div class="panel-header">
                     <h3><i class="fas fa-bed color-primary"></i> Current Booking</h3>
                 </div>
-                <div class="table-responsive-stack">
+                <div class="table-responsive-stack" style="width:100%; display:flex; justify-content:center;">
                     <?php if(empty($bookings)): ?>
-                        <div class="empty-state profile-empty-state">
-                            <i class="fas fa-bed"></i>
-                            <p>You haven't booked a bed yet.</p>
-                            <a href="booking.php" class="btn btn-outline" style="margin-top: 1rem;" onclick="return YA_DORM.handleBookingClick(event)">Find a Bed</a>
+                        <div class="empty-state profile-empty-state" style="text-align:center; padding: 4rem 2rem;">
+                            <i class="fas fa-bed" style="font-size:3rem; margin-bottom:1.5rem; color:var(--primary); opacity:0.4;"></i>
+                            <h3 style="font-family:'Outfit',sans-serif; font-weight:700; color:var(--text-main);">No Bookings Found</h3>
+                            <p style="color:var(--text-secondary); margin-bottom:1.5rem;">You haven't booked a bed yet.</p>
+                            <a href="booking.php" class="btn btn-primary" style="padding:0.8rem 2rem; border-radius:30px;" onclick="return YA_DORM.handleBookingClick(event)">Start Booking</a>
                         </div>
                     <?php else: ?>
-                        <table class="payment-history-table">
+                        <table class="payment-history-table" style="width:100%; border-collapse: separate; border-spacing: 0 0.75rem;">
                             <thead>
-                                <tr>
-                                    <th>Booking ID</th>
-                                    <th>Room / Bed</th>
-                                    <th>Status</th>
-                                    <th>Due Date</th>
-                                    <th>Rent Status</th>
-                                    <th>Action</th>
+                                <tr style="background:transparent;">
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Ref ID</th>
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Bed Allocation</th>
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Approval</th>
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Due Date</th>
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Billing</th>
+                                    <th style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-size:0.85rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted);">Quick Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach($bookings as $b): ?>
-                                <tr>
-                                    <td data-label="Booking ID"><strong>#<?php echo $b['id']; ?></strong></td>
-                                    <td data-label="Room / Bed">
-                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                            <span style="font-weight:600;"><?php echo htmlspecialchars('Bed ' . ($b['bed_no'] ?? $b['bed_id'])); ?></span>
+                                <tr style="background:rgba(255,255,255,0.7); backdrop-filter:blur(10px); border-radius:1rem; box-shadow:0 4px 15px rgba(0,0,0,0.03);">
+                                    <td data-label="Booking ID" style="text-align:center; padding:1.25rem; font-family:'Outfit',sans-serif; font-weight:700;">#<?php echo $b['id']; ?></td>
+                                    <td data-label="Room / Bed" style="text-align:center; padding:1.25rem;">
+                                        <div style="display: flex; flex-direction:column; align-items: center; justify-content:center;">
+                                            <span style="font-weight:800; color:var(--text-main); font-family:'Outfit',sans-serif; font-size:1.05rem;"><?php echo htmlspecialchars('Bed ' . ($b['bed_no'] ?? $b['bed_id'])); ?></span>
                                             <?php if($b['room_no']): ?>
-                                                <small style="color:#64748b;">(Room <?php echo $b['room_no']; ?>)</small>
+                                                <span style="color:var(--primary); font-size:0.75rem; font-weight:700; text-transform:uppercase;">Room <?php echo $b['room_no']; ?></span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
-                                    <td data-label="Status">
+                                    <td data-label="Status" style="text-align:center; padding:1.25rem;">
                                         <?php 
                                             $s = strtolower($b['booking_status']);
-                                            $badgeClass = 'badge-warning';
+                                            $badgeStyle = 'background:rgba(245,158,11,0.1); color:#d97706;';
                                             $displayStatus = 'Pending';
                                             
                                             if (in_array($s, ['active', 'confirmed', 'accepted'])) {
-                                                $badgeClass = 'badge-success';
+                                                $badgeStyle = 'background:rgba(16,185,129,0.1); color:#059669;';
                                                 $displayStatus = 'Accepted';
                                             } elseif (in_array($s, ['declined', 'cancelled', 'rejected'])) {
-                                                $badgeClass = 'badge-danger';
+                                                $badgeStyle = 'background:rgba(239,68,68,0.1); color:#dc2626;';
                                                 $displayStatus = 'Declined';
                                             }
                                         ?>
-                                        <span class="badge <?php echo $badgeClass; ?>">
+                                        <span style="padding:0.4rem 1rem; border-radius:30px; font-weight:800; font-size:0.75rem; text-transform:uppercase; <?php echo $badgeStyle; ?>">
                                             <?php echo $displayStatus; ?>
                                         </span>
                                     </td>
-                                    <td data-label="Due Date"><?php echo $b['due_date'] ? date('M d, Y', strtotime($b['due_date'])) : 'N/A'; ?></td>
-                                    <td data-label="Rent Status">
+                                    <td data-label="Due Date" style="text-align:center; padding:1.25rem; font-weight:600; color:var(--text-secondary);">
+                                        <?php echo $b['due_date'] ? date('M d, Y', strtotime($b['due_date'])) : '—'; ?>
+                                    </td>
+                                    <td data-label="Rent Status" style="text-align:center; padding:1.25rem;">
                                         <?php if($b['is_overdue']): ?>
-                                            <span class="badge badge-danger">Overdue</span>
+                                            <span style="padding:0.4rem 0.8rem; background:#fee2e2; color:#b91c1c; border-radius:8px; font-size:0.7rem; font-weight:900; text-transform:uppercase;">Overdue</span>
                                         <?php elseif($b['booking_status'] === 'Active' || $b['booking_status'] === 'Confirmed'): ?>
-                                            <span class="badge badge-success">Good</span>
+                                            <span style="padding:0.4rem 0.8rem; background:#dcfce7; color:#15803d; border-radius:8px; font-size:0.7rem; font-weight:900; text-transform:uppercase;">Paid</span>
                                         <?php else: ?>
-                                            <span class="badge" style="background:#e2e8f0;color:#475569;">Closed</span>
+                                            <span style="padding:0.4rem 0.8rem; background:#f1f5f9; color:#64748b; border-radius:8px; font-size:0.7rem; font-weight:900; text-transform:uppercase;">Inactive</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td data-label="Action">
+                                    <td data-label="Action" style="text-align:center; padding:1.25rem;">
                                         <?php if(strtolower($b['booking_status']) === 'active' || strtolower($b['booking_status']) === 'confirmed' || strtolower($b['booking_status']) === 'accepted'): ?>
-                                            <button class="btn btn-pay-now <?php echo $b['is_overdue'] ? 'btn-pulse' : ''; ?>" onclick="openPaymentModal(<?php echo $b['id']; ?>)">
-                                                <i class="fas fa-wallet"></i> Pay Rent
+                                            <button class="btn btn-primary" style="padding:0.5rem 1rem; font-size:0.85rem; border-radius:12px; font-weight:700;" onclick="openPaymentModal(<?php echo $b['id']; ?>)">
+                                                <i class="fas fa-wallet" style="margin-right:0.4rem;"></i> Pay ₱1,600
                                             </button>
                                         <?php else: ?>
-                                            <div style="color: var(--text-muted); font-size: 0.8rem;">-</div>
+                                            <span style="color:#cbd5e1;">—</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -1160,18 +1163,19 @@ include 'api/header.php';
                 </div>
             </div>
 
-            <div id="paymentFormArea" style="max-height:0; overflow:hidden; transition:0.4s ease; opacity:0;">
-                <div class="form-group" style="margin-bottom: 1.5rem;">
-                    <label style="font-size: 0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.75rem; display:block;">Transaction Receipt</label>
-                    <div onclick="document.getElementById('receiptFile').click()" class="receipt-upload-box">
-                        <i class="fas fa-cloud-upload-alt" style="font-size: 2rem; color: var(--primary); margin-bottom: 0.75rem; opacity: 0.6;"></i>
-                        <p id="fileNameDisplay" style="margin:0; font-size:0.9rem; color:var(--text-secondary); font-weight:700;">Click to upload snapshot</p>
+            <div id="paymentFormArea" style="max-height:0; overflow:hidden; transition:0.4s cubic-bezier(0.4, 0, 0.2, 1); opacity:0; margin-top:2rem;">
+                <div class="form-group" style="margin-bottom: 2rem; display:flex; flex-direction:column; align-items:center; text-align:center;">
+                    <label style="font-family:'Outfit'; font-size: 0.8rem; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1rem;">Upload Payment Proof <span style="color:red">*</span></label>
+                    <div onclick="document.getElementById('receiptFile').click()" class="receipt-upload-box" style="width:100%; max-width:320px; border:2px dashed rgba(16,185,129,0.3); background:rgba(16,185,129,0.02); padding:2rem; border-radius:1.5rem; cursor:pointer; transition:0.3s transition;">
+                        <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--primary); margin-bottom: 1rem; opacity: 0.8;"></i>
+                        <p id="fileNameDisplay" style="margin:0; font-family:'Outfit'; font-size:0.95rem; color:var(--text-main); font-weight:700;">Click to select receipt</p>
+                        <p style="margin-top:0.5rem; font-size:0.75rem; color:var(--text-muted);">Format: JPG, PNG • Max 5MB</p>
                         <input type="file" id="receiptFile" hidden accept="image/*" onchange="updateFileName(this)">
                     </div>
                 </div>
-                <div class="helper-note">
-                    <i class="fas fa-info-circle" style="margin-top:2px;"></i>
-                    <span style="line-height:1.4;">Notifications are verified within 24 hours.</span>
+                <div class="helper-note" style="display:flex; justify-content:center; gap:0.5rem; background:rgba(16,185,129,0.05); padding:1rem; border-radius:1rem; color:#065f46; font-size:0.8rem; font-weight:600;">
+                    <i class="fas fa-shield-alt" style="margin-top:2px;"></i>
+                    <span style="line-height:1.4; text-align:center;">Admin will verify your transfer within 24 hours.</span>
                 </div>
             </div>
 

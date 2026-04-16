@@ -135,11 +135,13 @@ try {
              full_name, category, school_name,
              contact_number, guardian_name, guardian_contact,
              payment_method, receipt_path,
+             monthly_rent, current_balance,
              booking_status, payment_status, reserve_at)
         VALUES
             (?, ?, ?,
              ?, ?, ?,
              ?, ?, ?,
+             ?, ?,
              ?, ?,
              'Pending', 'Pending', NOW())
     ");
@@ -148,7 +150,8 @@ try {
         $booking_ref, $bed_id, $user_id,
         $full_name, $category, $school_name,
         $contact_number, $guardian_name, $guardian_contact,
-        $payment_method, $receipt_path
+        $payment_method, $receipt_path,
+        FIXED_RENT, FIXED_RENT
     ])) {
         throw new Exception('Insert failed');
     }

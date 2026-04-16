@@ -111,11 +111,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 <div class="form-group mb-8">
                     <label style="margin-left: 0.5rem;">Password</label>
-                    <div class="input-container">
-                        <input type="password" name="password" required placeholder="••••••••" style="height: 3.5rem;">
+                    <div class="input-container" style="position:relative;">
+                        <input type="password" name="password" id="loginPassword" required placeholder="••••••••" style="height: 3.5rem; padding-right: 3rem;">
                         <i class="fas fa-lock"></i>
+                        <button type="button" class="password-toggle" onclick="togglePassword('loginPassword', this)" 
+                                style="position:absolute; right:1.25rem; top:50%; transform:translateY(-50%); background:none; border:none; color:#94a3b8; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; width:24px; height:24px; z-index:10;">
+                            <i class="fas fa-eye"></i>
+                        </button>
                     </div>
                 </div>
+                <script>
+                function togglePassword(id, btn) {
+                    const input = document.getElementById(id);
+                    const icon = btn.querySelector('i');
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        icon.classList.remove('fa-eye');
+                        icon.classList.add('fa-eye-slash');
+                    } else {
+                        input.type = 'password';
+                        icon.classList.remove('fa-eye-slash');
+                        icon.classList.add('fa-eye');
+                    }
+                }
+                </script>
                 <button type="submit" class="btn btn-primary btn-full" style="width: 100%; height: 3.75rem; font-size: 1.1rem;">Sign In <i class="fas fa-sign-in-alt" style="margin-left: 0.75rem;"></i></button>
             </form>
             <div class="text-center mt-4">

@@ -34,6 +34,8 @@ class DbSessionHandler implements SessionHandlerInterface {
 
 if (session_status() === PHP_SESSION_NONE) {
     // Force specific cookie settings for Vercel stability
+    // SET TO 0 TO ENSURE NO PERSISTENCE WHEN REOPENING SITE
+    ini_set('session.cookie_lifetime', 0); 
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
     ini_set('session.cookie_path', '/');
@@ -54,6 +56,11 @@ if (session_status() === PHP_SESSION_NONE) {
     
     @session_start();
 }
+
+/**
+ * Global Constants
+ */
+define('FIXED_RENT', 1600);
 
 
 

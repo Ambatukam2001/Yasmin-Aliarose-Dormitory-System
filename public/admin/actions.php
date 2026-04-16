@@ -56,9 +56,9 @@ if (isset($_GET['quick_action'])) {
         $due = date('Y-m-d', strtotime($base . ' +1 month'));
 
         $stmt = $conn->prepare(
-            "UPDATE bookings SET booking_status = 'Active', payment_status = 'Confirmed', due_date = ? WHERE id = ?"
+            "UPDATE bookings SET booking_status = 'Active', payment_status = 'Confirmed', due_date = ?, monthly_rent = ?, current_balance = ? WHERE id = ?"
         );
-        $ok = $stmt->execute([$due, $id]);
+        $ok = $stmt->execute([$due, FIXED_RENT, FIXED_RENT, $id]);
 
         if (!$ok) booking_redirect('error', $filter);
 

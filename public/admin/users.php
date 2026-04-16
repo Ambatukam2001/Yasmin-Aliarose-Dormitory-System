@@ -18,6 +18,7 @@ $has_request_out_table = (bool)$check_ro_table;
 
 $users = $conn->query("
     SELECT b.*, 
+           u.id as user_actual_id,
            u.full_name as profile_name, 
            u.phone as profile_phone, 
            u.email as profile_email, 
@@ -28,6 +29,24 @@ $users = $conn->query("
     WHERE b.booking_status = 'Active' 
     ORDER BY COALESCE(u.full_name, b.full_name) ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+/* ── POST: Edit Resident Profile ── */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_edit_profile'])) {
+    $u_id      = (int)($_POST['user_id'] ?? 0);
+    $full_name = trim($_POST['full_name']);
+    $phone     = trim($_POST['phone']);
+    $email     = trim($_POST['email']);
+    $address   = trim($_POST['address']);
+    $emergency = trim($_POST['emergency_contact']);
+
+    if ($u_id) {
+        $stmt = $conn->prepare("UPDATE users SET full_name = ?, phone = ?, email = ?, address = ?, emergency_contact = ? WHERE id = ?");
+        $stmt->execute([$full_name, $phone, $email, $address, $emergency, $u_id]);
+        $_SESSION['flash_msg'] = "✅ Resident profile updated successfully!";
+    }
+    header('Location: users.php');
+    exit;
+}
 
 // Handle transfer actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_transfer'])) {
@@ -394,7 +413,10 @@ if ($has_request_out_table) {
                         <td data-label="Resident Type"><span class="badge badge-info"><?php echo $u['category']; ?></span></td>
                         <td data-label="Joined Date"><?php echo date('M d, Y', strtotime($u['created_at'])); ?></td>
                         <td data-label="Action" class="text-right">
-                            <a href="bookings.php?status=all" class="btn-action btn-outline">Profile</a>
+                            <button class="btn-action btn-outline" 
+                                    onclick="openEditUserModal('<?php echo $u['user_actual_id']; ?>', '<?php echo addslashes($u['profile_name'] ?: $u['full_name']); ?>', '<?php echo addslashes($u['profile_phone'] ?: $u['contact_number']); ?>', '<?php echo addslashes($u['profile_email'] ?: ''); ?>', '<?php echo addslashes($u['profile_address'] ?: ''); ?>', '<?php echo addslashes($u['profile_emergency'] ?: ''); ?>')">
+                                <i class="fas fa-edit"></i> Edit Info
+                            </button>
                         </td>
                     </tr>
                     <?php endforeach; endif; ?>
@@ -403,6 +425,60 @@ if ($has_request_out_table) {
         </div>
     </main>
 
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal-wrapper" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+        <div class="modal-body max-w-500" style="background:white; padding:2rem; border-radius:1.5rem; width:100%; max-width:500px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                <h2 style="font-family:'Outfit'; font-weight:800; margin:0; color:var(--text-main);">Edit Resident Profile</h2>
+                <button onclick="closeEditUserModal()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.25rem;"><i class="fas fa-times"></i></button>
+            </div>
+            <form method="POST">
+                <input type="hidden" name="action_edit_profile" value="1">
+                <input type="hidden" name="user_id" id="edit_u_id">
+                
+                <div class="form-group mb-4">
+                    <label style="display:block; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Full Name</label>
+                    <input type="text" name="full_name" id="edit_u_name" class="input-text w-full" required style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem;">
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1rem;">
+                    <div class="form-group">
+                        <label style="display:block; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Phone Number</label>
+                        <input type="text" name="phone" id="edit_u_phone" class="input-text w-full" style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem;">
+                    </div>
+                    <div class="form-group">
+                        <label style="display:block; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Email Address</label>
+                        <input type="email" name="email" id="edit_u_email" class="input-text w-full" style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem;">
+                    </div>
+                </div>
+                <div class="form-group mb-4">
+                    <label style="display:block; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Home Address</label>
+                    <textarea name="address" id="edit_u_address" rows="2" class="input-text w-full" style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem; font-family:inherit;"></textarea>
+                </div>
+                <div class="form-group mb-6">
+                    <label style="display:block; font-size:0.75rem; font-weight:800; text-transform:uppercase; color:var(--text-muted); margin-bottom:0.5rem;">Emergency Contact Info</label>
+                    <input type="text" name="emergency_contact" id="edit_u_emergency" class="input-text w-full" placeholder="Name / Relationship / Phone" style="width:100%; padding:0.75rem; border:1px solid #e2e8f0; border-radius:0.75rem;">
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width:100%; padding:1rem; border-radius:1rem; font-weight:800; text-transform:uppercase; letter-spacing:0.05em;">Update Profile <i class="fas fa-save" style="margin-left:0.5rem;"></i></button>
+            </form>
+        </div>
+    </div>
+
     <script src="../assets/js/admin.js?v=<?php echo time(); ?>"></script>
+    <script>
+    function openEditUserModal(id, name, phone, email, address, emergency) {
+        document.getElementById('edit_u_id').value = id;
+        document.getElementById('edit_u_name').value = name;
+        document.getElementById('edit_u_phone').value = phone;
+        document.getElementById('edit_u_email').value = email;
+        document.getElementById('edit_u_address').value = address;
+        document.getElementById('edit_u_emergency').value = emergency;
+        
+        document.getElementById('editUserModal').style.display = 'flex';
+    }
+    function closeEditUserModal() {
+        document.getElementById('editUserModal').style.display = 'none';
+    }
+    </script>
 </body>
 </html>
