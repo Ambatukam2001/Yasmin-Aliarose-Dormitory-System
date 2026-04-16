@@ -70,11 +70,8 @@ try {
     
     // Detailed error for authentication failures
     if (strpos($msg, 'password authentication failed') !== false) {
-        $pass_len = strlen($password);
-        $debug_info = "Host: $host, Port: $port, User: $username, DB: $dbname, PassLen: $pass_len";
-        die("Connection failed (Source: $source): Authentication error.\n<br>Values used: $debug_info\n<br>Error: $msg");
+        die("Connection failed (Source: $source): Authentication error. Please check your credentials.");
     }
-
     die("Connection failed (Source: $source): " . $msg);
 }
 
