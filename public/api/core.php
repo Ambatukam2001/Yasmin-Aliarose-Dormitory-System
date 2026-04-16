@@ -5,16 +5,54 @@ $base_dir = (strpos($current_page, '/admin/') !== false) ? '../' : '';
 
 require_once __DIR__ . '/db.php';
 
+/**
+ * DATABASE SESSION HANDLER
+ * Ensures sessions persist across Vercel serverless instances by storing them in Supabase.
+ */
+class DbSessionHandler implements SessionHandlerInterface {
+    private $db;
+    public function __construct($db) { $this->db = $db; }
+    public function open($path, $name): bool { return true; }
+    public function close(): bool { return true; }
+    public function read($id): string {
+        $st = $this->db->prepare("SELECT data FROM sessions WHERE id = ?");
+        $st->execute([$id]);
+        return $st->fetchColumn() ?: '';
+    }
+    public function write($id, $data): bool {
+        $st = $this->db->prepare("INSERT INTO sessions (id, data, last_accessed) VALUES (?, ?, CURRENT_TIMESTAMP) 
+                                 ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, last_accessed = CURRENT_TIMESTAMP");
+        return $st->execute([$id, $data]);
+    }
+    public function destroy($id): bool {
+        return $this->db->prepare("DELETE FROM sessions WHERE id = ?")->execute([$id]);
+    }
+    public function gc($max_lifetime): int|false {
+        return $this->db->prepare("DELETE FROM sessions WHERE last_accessed < (CURRENT_TIMESTAMP - INTERVAL '1 day')")->execute();
+    }
+}
+
 if (session_status() === PHP_SESSION_NONE) {
-    // Session optimizations for Vercel/Stateless environments
+    // Force specific cookie settings for Vercel stability
     ini_set('session.cookie_httponly', 1);
     ini_set('session.use_only_cookies', 1);
     ini_set('session.cookie_path', '/');
     if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
         ini_set('session.cookie_secure', 1);
     }
-    session_start();
+
+    // Register our database session handler
+    try {
+        $handler = new DbSessionHandler($conn);
+        session_set_save_handler($handler, true);
+        session_start();
+    } catch (Exception $e) {
+        // Fallback to default if DB session fails (e.g. table not created yet)
+        @session_start();
+    }
 }
+
+
 
 
 

@@ -132,9 +132,17 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 11. Sessions Table (for Vercel persistence)
+CREATE TABLE IF NOT EXISTS sessions (
+  id VARCHAR(255) PRIMARY KEY,
+  data TEXT NOT NULL,
+  last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create some useful indexes for speed
 CREATE INDEX IF NOT EXISTS idx_beds_room ON beds(room_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_bed ON bookings(bed_id);
 CREATE INDEX IF NOT EXISTS idx_payments_booking ON payments(booking_id);
 CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_access ON sessions(last_accessed);

@@ -35,6 +35,14 @@ try {
         )");
     }
 
+    // 0. Ensure Sessions Table exists
+    $conn->exec("CREATE TABLE IF NOT EXISTS sessions (
+        id VARCHAR(255) PRIMARY KEY,
+        data TEXT NOT NULL,
+        last_accessed TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )");
+    echo "<p>✅ Session storage initialized.</p>";
+
     // Deep clean: Delete existing admin 'admin' to avoid duplicates or salt issues
     $conn->prepare("DELETE FROM admins WHERE username = 'admin'")->execute();
     
