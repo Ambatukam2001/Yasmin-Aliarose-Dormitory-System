@@ -13,7 +13,7 @@ $route = 'rooms';
 /* ── POST: Add Room ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     $r_no   = trim($_POST['room_no'] ?? '');
-    $f_no   = (int)($_POST['floor_no'] ?? 2);
+    $f_no   = (int)($_POST['floor_no'] ?? 1);
     $bcount = (int)($_POST['beds_count'] ?? 4);
 
     if ($r_no && $bcount >= 0) {
@@ -23,17 +23,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
             $_SESSION['flash_msg'] = "Error: Room $r_no already exists on Floor $f_no.";
         } else {
             try {
+                $conn->beginTransaction();
                 $stmt = $conn->prepare("INSERT INTO rooms (room_no, floor_no, capacity) VALUES (?, ?, ?)");
                 if ($stmt->execute([$r_no, $f_no, $bcount])) {
                     $new_room_id = $conn->lastInsertId();
-                    for ($i = 1; $i <= $bcount; $i++) {
-                        $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
-                        $stmt_bed = $conn->prepare("INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES (?, ?, ?, 'Available')");
-                        $stmt_bed->execute([$new_room_id, $f_no, $bno]);
+                    
+                    if ($bcount > 0) {
+                        // Optimized Bulk Insert for Beds
+                        $sql_beds = "INSERT INTO beds (room_id, floor_id, bed_no, status) VALUES ";
+                        $vals = [];
+                        $params = [];
+                        for ($i = 1; $i <= $bcount; $i++) {
+                            $bno = str_pad($i, 2, '0', STR_PAD_LEFT);
+                            $vals[] = "(?, ?, ?, 'Available')";
+                            $params[] = $new_room_id;
+                            $params[] = $f_no;
+                            $params[] = $bno;
+                        }
+                        $sql_beds .= implode(", ", $vals);
+                        $conn->prepare($sql_beds)->execute($params);
                     }
-                    $_SESSION['flash_msg'] = "Room $r_no added successfully.";
+                    
+                    $conn->commit();
+                    $_SESSION['flash_msg'] = "Room $r_no added successfully with $bcount beds.";
                 }
             } catch (Exception $e) {
+                if ($conn->inTransaction()) $conn->rollBack();
                 $_SESSION['flash_msg'] = "Error adding room: " . $e->getMessage();
             }
         }
@@ -42,12 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_room'])) {
     exit;
 }
 
-
 /* ── POST: Edit Room ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
     $r_id   = (int)($_POST['room_id'] ?? 0);
     $r_no   = trim($_POST['room_no'] ?? '');
-    $f_no   = (int)($_POST['floor_no'] ?? 2);
+    $f_no   = (int)($_POST['floor_no'] ?? 1);
     $status = $_POST['room_status'] ?? 'Available';
     if ($r_id && $r_no) {
         $stmt = $conn->prepare("UPDATE rooms SET room_no = ?, floor_no = ?, status = ? WHERE id = ?");
@@ -58,6 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_room'])) {
 }
 
 /* ── GET: Delete Room ── */
+
 if (isset($_GET['action']) && $_GET['action'] === 'delete_room') {
     $r_id = (int)($_GET['id'] ?? 0);
     if ($r_id) {
@@ -442,6 +457,7 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 <div class="form-group mb-4">
                     <label>Floor Number</label>
                     <select name="floor_no" class="input-select w-full" required>
+                        <option value="1">1st Floor</option>
                         <option value="2">2nd Floor</option>
                         <option value="3">3rd Floor</option>
                         <option value="4">4th Floor</option>
@@ -475,6 +491,7 @@ function buildBedChipHtml($bedId, $bedNo, $status, $reservedAt, $roomId) {
                 <div class="form-group mb-4">
                     <label>Floor</label>
                     <select name="floor_no" id="edit_floor_no" class="input-select w-full">
+                        <option value="1">1st Floor</option>
                         <option value="2">2nd Floor</option>
                         <option value="3">3rd Floor</option>
                         <option value="4">4th Floor</option>
